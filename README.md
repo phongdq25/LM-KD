@@ -3,10 +3,7 @@
 <p align="center">
   <a href="https://pytorch.org"><img src="https://img.shields.io/badge/PyTorch-2.1%2B-ee4c2c.svg?style=flat-square&logo=pytorch" alt="PyTorch"></a>
   <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue.svg?style=flat-square&logo=python" alt="Python"></a>
-  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square" alt="Ruff"></a>
-  <a href="https://mypy-lang.org"><img src="https://img.shields.io/badge/types-Mypy%20Strict-blue.svg?style=flat-square" alt="Mypy"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-green.svg?style=flat-square" alt="License"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/Tests-740%2B%20Passing-brightgreen.svg?style=flat-square" alt="Tests"></a>
 </p>
 
 **LM-KD** is an open-source, production-grade knowledge distillation framework for Large Language Models.
