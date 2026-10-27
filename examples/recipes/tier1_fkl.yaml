@@ -1,0 +1,12 @@
+# Tier 1: a loss written as a plain function (examples/my_losses.py::example_fkl) used like any
+# built-in criterion. Same run as recipes/same_tokenizer/fkl.yaml, with the KD term swapped.
+#   lmkd train -c examples/recipes/tier1_fkl.yaml --set train.max_steps=10
+_base_: ../../recipes/same_tokenizer/fkl.yaml
+name: example_tier1_fkl
+imports: [../my_losses.py]          # relative to this file
+loss:
+  aggregator: {type: kd_mix, kd_ratio: 1.0, ce_alias: nll}
+  terms:
+    - {criterion: nll}
+    - {criterion: example_fkl, alias: kd, params: {temperature: 1.0}}
+train: {output_dir: outputs/example_tier1_fkl}

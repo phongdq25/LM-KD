@@ -1,0 +1,14 @@
+# Executed by lmkd.integrations.kto_runner through scripts/reproduce.sh kto.
+# External TRL trainer owns the loss and optimizer; no native criterion.
+name: kto
+models:
+  student: {path: models/student, dtype: bf16}
+  teacher: {path: models/reference, dtype: bf16}
+data:
+  train: {type: jsonl, path: data/preference/kto.jsonl}
+  max_length: 1024
+teacher: {provider: none, input: same}
+loss: {terms: []}
+train: {output_dir: outputs/preference/kto, batch_size: 16, micro_batch_size: 2}
+optim: {lr: 1.0e-6}
+compat: {reproduction_backend: trl_kto, kto_beta: 0.1}

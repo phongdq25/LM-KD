@@ -1,0 +1,27 @@
+name: adpa_listwise
+models:
+  student: {path: models/student, dtype: bf16}
+data: {max_length: 1024}
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: jsonl, path: data/preference/train.jsonl}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
+  - stage: teacher_cache
+    name: teacher_cache
+    inputs: {data: prepare}
+    dataset: true
+    model: models/teacher
+    reference_model: models/reference
+    kind: adv_sparse
+    k: 50
+    fields: [1]
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: none, input: same}
+loss:
+  terms:
+    - {criterion: adpa, weight: 1.6}
+    - {criterion: chosen_nll, weight: 1.0}
+train: {output_dir: outputs/preference/adpa, batch_size: 32, micro_batch_size: 2}
+optim: {lr: 5e-7}

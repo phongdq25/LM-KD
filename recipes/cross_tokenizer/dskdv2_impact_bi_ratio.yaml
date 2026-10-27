@@ -1,0 +1,23 @@
+# Ablation: DSKDv2 + IMPACT with bi_ratio layer mapper.
+_base_: dskdv2_impact.yaml
+name: dskdv2_impact_bi_ratio
+loss:
+  terms:
+    - criterion: nll
+      alias: nll
+      weight: 0.15
+    - criterion: dskdv2_eta
+      alias: kd
+      weight: 0.85
+      params:
+        temperature: 2.5
+        kd_objective: skewed_forward_kl
+    - criterion: impact
+      alias: impact
+      weight: 2.0
+      params:
+        lambda_reg: 2.0
+        layer_mapper:
+          type: bi_ratio
+train:
+  output_dir: outputs/dskdv2_impact_bi_ratio

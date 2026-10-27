@@ -1,0 +1,22 @@
+# Provenance NLL/DFT objective on P-ALIGN data with junction_tokens=8.
+_base_: provenance_nll_dft.yaml
+name: long_cot_provenance_nll_dft_j8
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source:
+      type: jsonl
+      path: data/palign.jsonl
+    transforms:
+      - type: render_cot
+      - type: tokenize_cot
+  - stage: build_weights
+    name: weights
+    inputs:
+      data: prepare
+    chain:
+      - type: provenance
+        junction_tokens: 8
+    dataset: true
+train:
+  output_dir: outputs/long_cot/provenance_nll_dft_j8

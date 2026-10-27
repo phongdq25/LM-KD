@@ -1,0 +1,82 @@
+name: long_cot_palign
+models:
+  student:
+    path: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+data:
+  max_length: 32768
+pipeline:
+- stage: prepare_dataset
+  name: raw
+  source:
+    type: jsonl
+    path: data/palign_raw.jsonl
+- stage: palign_search
+  name: search
+  inputs:
+    data: raw
+  engine: vllm
+- stage: generate
+  name: gen
+  inputs:
+    records: search
+  prompt_template: 'Please continue from the draft and solve the problem step by step,
+    and put your final answer within \boxed{{}}. I will provide you with some prior
+    knowledge as a draft to assist you in solving the question.*Question*:{question}
+
+    *Prefix*:{prefix}'
+  sampling:
+    temperature: 0.6
+    top_p: 0.9
+    repetition_penalty: 1.05
+    max_new_tokens: 32768
+- stage: verify_filter
+  name: verify
+  inputs:
+    records: gen
+- stage: prepare_dataset
+  name: prepare
+  inputs:
+    prev: verify
+  source:
+    type: artifact_records
+    node: verify
+  transforms:
+  - type: render_cot
+  - type: tokenize_cot
+  dataset: true
+loss:
+  terms:
+  - criterion: nll
+optim:
+  lr: 5.0e-05
+  schedulers:
+  - type: cosine
+    warmup_ratio: 0.1
+    min_lr_ratio: 0.2
+  weight_decay: 0.0
+  groups:
+  - name: no_decay
+    match:
+      ndim_le: 1
+    weight_decay: 0.0
+  - name: default
+    match: {}
+  optimizers:
+    default:
+      type: adamw
+train:
+  output_dir: outputs/long_cot/palign
+  epochs: 3
+  batch_size: 32
+  micro_batch_size: 1
+  seed: 42
+  log_every: 10
+producer: dataset
+algorithm: standard
+step: standard
+grad:
+  clip_norm: 1.0
+engine:
+  type: local
+  device: auto
+  mixed_precision: bf16

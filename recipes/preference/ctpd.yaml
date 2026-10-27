@@ -1,0 +1,25 @@
+name: ctpd_listwise
+models:
+  student: {path: models/student, dtype: bf16}
+  teacher: {path: models/reference, dtype: bf16}
+data: {max_length: 1024}
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: jsonl, path: data/preference/train.jsonl}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
+  - stage: teacher_cache
+    name: teacher_cache
+    inputs: {data: prepare}
+    dataset: true
+    model: models/teacher
+    reference_model: models/reference
+    kind: ctpd
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: hf_frozen, input: same}
+loss:
+  terms:
+    - {criterion: ctpd, weight: 1.0, params: {beta: 0.5}}
+train: {output_dir: outputs/preference/ctpd, batch_size: 32, micro_batch_size: 2}
+optim: {lr: 5e-7}

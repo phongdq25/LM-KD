@@ -1,0 +1,3 @@
+{"id": "ex0", "prompt": "What is knowledge distillation in machine learning?", "response": "Knowledge distillation is a model compression technique where a smaller student model is trained to reproduce the behavior and predictions of a larger teacher model."}
+{"id": "ex1", "prompt": "Solve the equation: 3x + 12 = 27.", "response": "Subtracting 12 from both sides gives 3x = 15. Dividing by 3 yields x = 5."}
+{"id": "ex2", "prompt": "Name three primary advantages of Bfloat16 over Float16.", "response": "Three key advantages of Bfloat16 are: 1) Same dynamic range as FP32 (8 exponent bits), 2) Eliminates the need for loss scaling, and 3) Reduced memory footprint compared to FP32."}

@@ -1,0 +1,18 @@
+# Regional P/C/J information weighting; input includes P-ALIGN prefix boundaries.
+_base_: sarw.yaml
+name: long_cot_region
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: jsonl, path: data/palign.jsonl}
+    transforms: [{type: render_cot}, {type: tokenize_cot}, {type: segment, segmenter: sentence}]
+  - {stage: spectral_capture, name: capture, inputs: {data: prepare}}
+  - stage: build_weights
+    name: weights
+    inputs: {data: prepare, signals: capture}
+    chain:
+      - {type: select_energy_top_p, p: 0.95}
+      - {type: provenance}
+      - {type: allocate_region, variant: region-iwc}
+    dataset: true
+train: {output_dir: outputs/long_cot/region}

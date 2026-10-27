@@ -1,0 +1,28 @@
+# Explicit reference backend: requires the audited sibling human_alignment source checkout.
+name: tbpo_q
+models:
+  student:
+    path: models/student
+    dtype: bf16
+  teacher:
+    path: models/reference
+    dtype: bf16
+data:
+  train:
+    type: jsonl
+    path: data/preference/train.jsonl
+  max_length: 1024
+loss:
+  terms: []
+train:
+  output_dir: outputs/preference/tbpo_q
+  batch_size: 16
+  micro_batch_size: 2
+optim:
+  lr: 1.0e-06
+compat:
+  reproduction_backend: po_reference
+  po_method: tbpo_q
+  po_options:
+    beta: 0.1
+    max_prompt_length: 128

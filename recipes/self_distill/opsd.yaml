@@ -1,0 +1,101 @@
+# On-Policy Self-Distillation (OPSD; Self-Distill/OPSD-main).
+# Hyperparameters follow original scripts/run_opsd_*.sh:
+# fixed_teacher (lora_disabled), beta=0.0, token_clip=0.05, T=1.1, top_p=0.95, top_k=20,
+# max_completion=1024, LoRA r64/a128, lr=5e-6, max_grad_norm=0.1.
+name: opsd_qwen3_1.7b
+
+models:
+  student:
+    path: Qwen/Qwen3-1.7B
+    dtype: bf16
+    task: causal_lm
+    gradient_checkpointing: true
+    lora:
+      r: 64
+      lora_alpha: 128
+      lora_dropout: 0.0
+      target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+data:
+  train:
+    type: jsonl
+    path: data/openthoughts_math_30k_opsd.jsonl   # {problem, solution}
+  transforms:
+    - type: tokenize_prompt
+      template: "Problem: {problem}\n\nPlease reason step by step, and put your final answer within \\boxed{{}}."
+      chat_template_kwargs: {enable_thinking: false}
+  max_length: 20000
+  padding: dynamic
+  pad_to_multiple_of: 8
+
+producer:
+  type: mixed
+  lmbda: 1.0
+  sampling:
+    temperature: 1.1
+    top_p: 0.95
+    top_k: 20
+    max_new_tokens: 1024
+
+rollout:
+  type: vllm_colocate
+  gpu_memory_utilization: 0.6
+  lora_mode: hot_load
+
+teacher:
+  provider:
+    type: self
+    weight_policy: lora_disabled
+  input:
+    type: privileged_prompt
+    template: "Problem: {problem}\n\nHere is a reference solution to this problem:\n=== Reference Solution Begin ===\n{solution}\n=== Reference Solution End ===\n\nAfter reading the reference solution above, make sure you truly understand the reasoning behind each step — do not copy or paraphrase it. Now, using your own words and independent reasoning, derive the same final answer to the problem above. Think step by step, explore different approaches, and don't be afraid to backtrack or reconsider if something doesn't work out:\n\nPlease reason step by step, and put your final answer within \\boxed{{}}."
+    fields: [problem, solution]
+    chat_template_kwargs: {enable_thinking: true}
+
+algorithm: standard
+step:
+  type: standard
+
+loss:
+  aggregator: weighted_sum
+  terms:
+    - criterion: token_kd
+      alias: opsd
+      params:
+        divergence: gjsd
+        beta: 0.0
+        token_clip: 0.05
+        temperature: 1.1
+
+optim:
+  lr: 5.0e-6
+  weight_decay: 0.0
+  groups:
+    - name: no_decay
+      match: {ndim_le: 1}
+      weight_decay: 0.0
+    - name: default
+      match: {}
+  optimizers:
+    default:
+      type: adamw
+  schedulers:
+    - type: cosine
+      warmup_ratio: 0.03
+      min_lr_ratio: 0.1
+
+grad:
+  clip_norm: 0.1
+
+engine:
+  type: local
+  device: auto
+  mixed_precision: bf16
+
+train:
+  output_dir: outputs/opsd
+  epochs: 1.0
+  batch_size: 8
+  micro_batch_size: 4
+  seed: 42
+  log_every: 10

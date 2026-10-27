@@ -1,0 +1,15 @@
+# Reproduce MCW_KD.sh: aux projector/salience receive lr=0 and baseline never calls the QP update.
+_base_: mcw_kd.yaml
+name: mcw_kd_compat_gpt2_from_qwen
+loss:
+  terms:
+    - {criterion: nll, weight: 1.0}
+    - {criterion: dskd_cma, alias: cma, weight: 5.0, params: {temperature: 3.0, kd_objective: forward_kl}}
+    - {criterion: ot_logits, weight: 1.0, params: {top_k_vocab: 400, compat_untrained_aux: true, update_cost_weights: false}}
+    - {criterion: ot_hidden, weight: 1.0, params: {compat_untrained_aux: true, update_cost_weights: false}}
+optim:
+  groups:
+    - {name: mcw_untrained, match: {group: mcw_untrained}, lr: 0.0, weight_decay: 0.0}
+    - {name: projector, match: {group: projector}, lr: 1.0e-3}
+    - {name: default, match: {}}
+train: {output_dir: outputs/mcw_kd_compat}

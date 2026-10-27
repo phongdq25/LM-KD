@@ -1,0 +1,34 @@
+# SGL IWC gated: p=0.95, lam=1.0.
+_base_: iwc.yaml
+name: long_cot_iwc_gated
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source:
+      type: jsonl
+      path: data/train.jsonl
+    transforms:
+      - type: render_cot
+      - type: tokenize_cot
+      - type: segment
+        segmenter: sentence
+  - stage: spectral_capture
+    name: capture
+    inputs:
+      data: prepare
+  - stage: build_weights
+    name: weights
+    inputs:
+      data: prepare
+      signals: capture
+    chain:
+      - type: select_energy_top_p
+        p: 0.95
+      - type: allocate_iwc
+        variant: stable
+        tau: 2.0
+        lam: 1.0
+        clip: 2.0
+    dataset: true
+train:
+  output_dir: outputs/long_cot/iwc_gated

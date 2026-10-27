@@ -1,0 +1,81 @@
+# Data part shared by cross-tokenizer recipes: tokenizations, char offsets, vocab map, ETA pairs.
+name: xtok_base_gpt2_from_qwen
+
+models:
+  student:
+    path: openai-community/gpt2
+    dtype: bf16
+    task: causal_lm
+  teacher:
+    path: Qwen/Qwen2.5-1.5B-Instruct
+    dtype: bf16
+    task: causal_lm
+    placement: same_device
+
+data:
+  train:
+    type: jsonl
+    path: data/train.jsonl
+  transforms:
+    - type: tokenize_sft
+      use_chat_template: false
+      teacher: true
+      teacher_prompt_text: same
+    - type: load_vocab_map
+      cache_path: outputs/xtok/vocab_map.pt
+    - type: token_offsets
+      teacher: true
+    - type: align
+      aligner:
+        type: exact_token
+  max_length: 1024
+  padding: dynamic
+  pad_to_multiple_of: 8
+
+teacher:
+  provider: hf_frozen
+  input: pretokenized
+
+producer:
+  type: dataset
+
+algorithm: standard
+step:
+  type: standard
+
+loss:
+  terms:
+    - criterion: nll
+
+optim:
+  lr: 2.0e-5
+  weight_decay: 0.0
+  groups:
+    - name: no_decay
+      match: {ndim_le: 1}
+      weight_decay: 0.0
+    - name: default
+      match: {}
+  optimizers:
+    default:
+      type: adamw
+  schedulers:
+    - type: cosine
+      warmup_ratio: 0.03
+      min_lr_ratio: 0.1
+
+grad:
+  clip_norm: 1.0
+
+engine:
+  type: local
+  device: auto
+  mixed_precision: bf16
+
+train:
+  output_dir: outputs/xtok_base
+  epochs: 1
+  batch_size: 32
+  micro_batch_size: 4
+  seed: 42
+  log_every: 10

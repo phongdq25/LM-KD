@@ -1,0 +1,13 @@
+# On-Policy Self-Distillation with reason_first teacher analysis.
+# Source: Self-Distill/OPSD-main/opsd_trainer.py:1308-1362.
+_base_: opsd.yaml
+name: opsd_reason_first_qwen3_1.7b
+teacher:
+  input:
+    _delete_: true
+    type: reason_first
+    reasoning_template: "Problem: {problem}\n\nHere is a correct reasoning to this problem:=== Reference Reasoning Start ===\n{solution}\n=== Reference Reasoning End ===\n\nThe reference reasoning above arrives at the correct answer. Please analyze this solution and explain the key reasoning steps and problem-solving strategies employed. Do NOT use <think> tags. Do NOT derive your own solution. Simply analyze and explain the reference solution provided above.\n"
+    transition_template: "\n\nAfter reading the reference solution above, make sure you truly understand the reasoning behind each step — do not copy or paraphrase it. Now, using your own words and independent reasoning, derive the same final answer to the problem above. Think step by step, explore different approaches, and don't be afraid to backtrack or reconsider if something doesn't work out:\n\nPlease reason step by step, and put your final answer within \\boxed{{}}."
+    fields: [problem, solution]
+    sampling: {temperature: 0.7, max_new_tokens: 1024}
+train: {output_dir: outputs/opsd_reason_first}

@@ -1,0 +1,11 @@
+# Math evaluation mix (aime24, math500 with n=8 samples). Include with _base_.
+eval:
+  - type: math_passk
+    benchmarks: [aime24, math500]
+    n: 8
+    ks: [1]
+    grader: math_verify
+callbacks:
+  - type: evaluate
+    every: epoch
+

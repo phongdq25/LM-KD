@@ -1,0 +1,5 @@
+# SGL IWC stable variant.
+_base_: iwc.yaml
+name: long_cot_iwc_stable
+train:
+  output_dir: outputs/long_cot/iwc_stable

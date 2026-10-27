@@ -1,0 +1,74 @@
+name: long_cot_sarw
+models:
+  student:
+    path: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+data:
+  max_length: 32768
+pipeline:
+- stage: prepare_dataset
+  name: prepare
+  source:
+    type: jsonl
+    path: data/palign.jsonl
+  transforms:
+  - type: render_cot
+  - type: tokenize_cot
+  - type: segment
+    segmenter: sentence
+- stage: spectral_capture
+  name: capture
+  inputs:
+    data: prepare
+- stage: answer_gain
+  name: gain
+  inputs:
+    data: prepare
+- stage: build_weights
+  name: weights
+  inputs:
+    data: prepare
+    signals: capture
+    signals_gain: gain
+  chain:
+  - type: select_energy_top_p
+    p: 0.95
+  - type: provenance
+  - type: allocate_region
+    variant: sarw
+  dataset: true
+loss:
+  terms:
+  - criterion: weighted_nll
+optim:
+  lr: 5.0e-05
+  schedulers:
+  - type: cosine
+    warmup_ratio: 0.1
+    min_lr_ratio: 0.2
+  weight_decay: 0.0
+  groups:
+  - name: no_decay
+    match:
+      ndim_le: 1
+    weight_decay: 0.0
+  - name: default
+    match: {}
+  optimizers:
+    default:
+      type: adamw
+train:
+  output_dir: outputs/long_cot/sarw
+  epochs: 3
+  batch_size: 32
+  micro_batch_size: 1
+  seed: 42
+  log_every: 10
+producer: dataset
+algorithm: standard
+step: standard
+grad:
+  clip_norm: 1.0
+engine:
+  type: local
+  device: auto
+  mixed_precision: bf16

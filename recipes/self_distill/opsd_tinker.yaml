@@ -1,0 +1,9 @@
+# On-Policy Self-Distillation with Thinking Machines reverse-KL policy gradient (Tinker variant).
+# Source: Self-Distill/OPSD-main/opsd_trainer.py:705-726.
+_base_: opsd.yaml
+name: opsd_tinker_qwen3_1.7b
+loss:
+  terms:
+    - {criterion: tinker_rkl, alias: tinker, params: {temperature: 1.0}}
+train: {output_dir: outputs/opsd_tinker}
+

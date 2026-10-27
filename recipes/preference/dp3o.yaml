@@ -1,0 +1,27 @@
+name: dp3o_listwise
+models:
+  student: {path: models/student, dtype: bf16}
+  teacher: {path: models/teacher, dtype: bf16}
+data: {max_length: 1024}
+pipeline:
+  - stage: prepare_dataset
+    name: raw
+    source: {type: jsonl, path: data/preference/train.jsonl}
+  - stage: score
+    name: scores
+    inputs: {data: raw}
+    mode: reward_model
+    model: models/reward_model
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: artifact_records, node: scores}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
+    dataset: true
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: hf_frozen, input: same}
+loss:
+  terms:
+    - {criterion: dp3o, weight: 1.0, params: {beta: 0.05, alpha: 0.2}}
+train: {output_dir: outputs/preference/dp3o, batch_size: 16, micro_batch_size: 2}
+optim: {lr: 1e-6}

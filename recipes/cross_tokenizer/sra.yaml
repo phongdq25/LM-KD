@@ -1,0 +1,103 @@
+name: sra_gpt2_from_qwen
+models:
+  student:
+    path: openai-community/gpt2
+    dtype: bf16
+    task: causal_lm
+    gradient_checkpointing: false
+    trainable: true
+    placement: same_device
+    trust_remote_code: false
+    attn_implementation: eager
+  teacher:
+    path: Qwen/Qwen2.5-1.5B-Instruct
+    dtype: bf16
+    task: causal_lm
+    gradient_checkpointing: false
+    trainable: true
+    placement: same_device
+    trust_remote_code: false
+    attn_implementation: eager
+data:
+  train:
+    type: jsonl
+    path: data/train.jsonl
+  transforms:
+  - type: tokenize_sft
+    use_chat_template: false
+    teacher: true
+    teacher_prompt_text: same
+  - type: token_offsets
+    teacher: true
+  - type: align
+    aligner:
+      type: lcs_span
+  max_length: 1024
+  padding: dynamic
+  pad_to_multiple_of: 8
+  packing: false
+  num_workers: 0
+  pin_memory: true
+teacher:
+  provider: hf_frozen
+  input: pretokenized
+loss:
+  aggregator:
+    type: kd_mix
+    kd_ratio: 0.5
+    ce_alias: nll
+  terms:
+  - criterion: nll
+    weight: 1.0
+    alias: nll
+    params: {}
+  - criterion: sra
+    weight: 1.0
+    alias: sra
+    params:
+      geom_weight: 50.0
+      span_power: 1.0
+      student_layers:
+      - -1
+      teacher_layers:
+      - -1
+      temperature: 2.0
+  schedules: {}
+producer:
+  type: dataset
+algorithm: standard
+step:
+  type: standard
+optim:
+  groups:
+  - name: projector
+    match:
+      group: projector
+    lr: 0.0005
+  - name: default
+    match: {}
+  optimizers:
+    default:
+      type: adamw
+  lr: 2.0e-05
+  weight_decay: 0.0
+  schedulers:
+  - type: cosine
+    warmup_ratio: 0.03
+    min_lr_ratio: 0.1
+grad:
+  clip_norm: 1.0
+  hooks: []
+  transforms: []
+engine:
+  type: local
+  device: auto
+  mixed_precision: bf16
+train:
+  output_dir: outputs/sra
+  epochs: 1.0
+  batch_size: 32
+  micro_batch_size: 4
+  seed: 42
+  log_every: 10
+  save: {}

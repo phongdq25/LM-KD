@@ -1,0 +1,27 @@
+# Score raw responses, then tokenize the scored artifact. vpd criterion is implemented in T22.
+name: vpd_listwise
+models:
+  student: {path: models/student, dtype: bf16}
+data: {max_length: 1024}
+pipeline:
+  - stage: prepare_dataset
+    name: raw
+    source: {type: jsonl, path: data/preference/train.jsonl}
+  - stage: score
+    name: scores
+    inputs: {data: raw}
+    mode: sequence_logprob
+    model: models/teacher
+    out_field: teacher_scores
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: artifact_records, node: scores}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
+    dataset: true
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: none, input: same}
+loss:
+  terms:
+    - {criterion: vpd, weight: 1.0}
+train: {output_dir: outputs/preference/vpd, batch_size: 8, micro_batch_size: 4}

@@ -1,0 +1,111 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lmkd"
+version = "0.1.0.dev0"
+description = "LM-KD: unified plugin-based LLM distillation framework"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "torch==2.10.0",
+  "transformers==4.57.6",
+  "pydantic==2.14.1",
+  "pyyaml==6.0.3",
+  "numpy==2.2.6",
+  "vllm==0.18.0",
+  "peft==0.18.1",
+  "lm_eval[vllm,math]==0.4.12",
+  "accelerate==1.15.0",
+  "deepspeed==0.19.8",
+  "datasets==5.0.1", 
+  "pyarrow==26.0.0",
+  "pytorch-optimizer==4.0.0",
+  "liger-kernel==0.8.5",
+  "math-verify==0.9.0",
+  "rouge-score==0.1.2",
+  "scikit-learn==1.9.1", 
+  "scipy==1.17.1",
+  "bitsandbytes==0.50.2",
+  "cvxpy==1.9.3",
+  "editdistance==0.8.1",
+  "trl==1.16.0",
+  "wandb==0.31.0",
+  "tokenkit"
+]
+
+[tool.uv.sources]
+tokenkit = { path = "packages/tokenkit-main", editable = true }
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
+trl = ["trl==1.16.0"]
+torchao = ["torchao>=0.4.0"]
+bitsandbytes = ["bitsandbytes==0.50.2"]
+
+[project.scripts]
+lmkd = "lmkd.cli:main"
+
+[project.entry-points."lmkd.plugins"]
+# Third-party packages can register plugins here: name = "package.module"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]
+markers = [
+  "gpu: needs CUDA",
+  "slow: > 10 s",
+  "parity: compares against original baseline code",
+]
+filterwarnings = [
+  "ignore::DeprecationWarning:torch.jit.*",
+  "ignore:.*argument 'device' of Tensor\\.(pin_memory|is_pinned)\\(\\) is deprecated.*:DeprecationWarning",
+  "ignore:.*torch\\.jit\\.script_method.*:DeprecationWarning",
+  "ignore:.*TRL currently supports vLLM versions.*:UserWarning",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests", "examples"]
+extend-exclude = [".venv", "tests/parity/_ref", "tests/e2e_tiny/test_skeleton_fixes.py", "src/lmkd/eval/_vendor"]  # skeleton regression test: frozen; vendor: 3rd party
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C4", "SIM"]
+ignore = [
+  "E501",    # long lines are formatted, not enforced (docstrings with formulas)
+  "E741",    # l/I/O names appear in math-heavy loss code
+  "B905",    # zip(strict=) is not needed for the tensor/list pairs used here
+  "SIM108",  # ternary rewrites hurt readability in loss code
+  "UP007",   # keep `Union[...]` where pydantic/dataclass annotations need it at runtime
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B", "SIM", "E402", "E702", "E731", "F841", "C4"]
+"examples/**" = ["E402"]
+"src/lmkd/__init__.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lmkd"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/lmkd"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+
+# Typed core: the modules that hold the contracts must be fully annotated. Everything else is checked
+# for real errors only (bodies of untyped functions included) but may keep partial annotations.
+[[tool.mypy.overrides]]
+module = ["lmkd.core.*", "lmkd.api", "lmkd.plugins", "lmkd.compat.*", "lmkd.train.runtime", "lmkd.train.trainer"]
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["lmkd.eval._vendor.*"]
+ignore_errors = true

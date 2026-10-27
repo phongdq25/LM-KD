@@ -1,0 +1,568 @@
+# ===================================================================================================
+# LM-KD MASTER CONFIGURATION TEMPLATE
+# ===================================================================================================
+# This master configuration file enumerates ALL available configuration fields in LM-KD.
+# It is completely self-contained (does not inherit from `_base_`), explicitly detailing every
+# parameter, valid candidate values, architectural significance, and tuning recommendations.
+#
+# Common CLI usage:
+#   1. Static configuration check (schema validation without loading weights into GPU):
+#      lmkd check -c examples/recipes/fkl_full.yaml
+#
+#   2. Preflight run (smoke test executing 1 real micro-batch with models and data):
+#      lmkd check -c examples/recipes/fkl_full.yaml --preflight
+#
+#   3. Inspect the fully resolved configuration after default merges and ${...} interpolation:
+#      lmkd config -c examples/recipes/fkl_full.yaml
+#
+#   4. Launch training:
+#      CUDA_VISIBLE_DEVICES=0 lmkd train -c examples/recipes/fkl_full.yaml
+#
+#   5. Quick parameter overrides via CLI using the --set flag:
+#      lmkd train -c examples/recipes/fkl_full.yaml --set train.max_steps=100 optim.lr=1e-5
+# ===================================================================================================
+
+# Unique experiment run identifier (displayed in logs and stored in metadata)
+name: fkl_full_example
+
+# List of custom extension plugins (relative paths to .py files from this YAML file,
+# or installed Python module names). Loaded dynamically before runtime assembly.
+# Example: imports: [my_custom_loss.py, my_package.custom_plugin]
+imports: []
+
+# Directory for storing intermediate artifacts from offline DAG pipelines (null = default <train.output_dir>/artifacts)
+artifacts_dir: null
+
+
+# ===================================================================================================
+# 1. MODELS (Student and Teacher Specifications)
+# ===================================================================================================
+models:
+  # -------------------------------------------------------------------------------------------------
+  # Student (The model to be trained / distilled - REQUIRED)
+  # -------------------------------------------------------------------------------------------------
+  student:
+    path: Qwen/Qwen3-0.6B               # HuggingFace Hub repo id or local filesystem directory with weights
+    dtype: bf16                         # Weight loading data type:
+                                        #   - bf16: Bfloat16 (recommended for Ampere/Ada/Hopper GPUs)
+                                        #   - fp16: Float16 (for older GPUs like Turing V100/T4)
+                                        #   - fp32: Single precision (doubles VRAM footprint)
+    task: causal_lm                     # Architecture task type:
+                                        #   - causal_lm: Autoregressive decoder-only LM (GPT, Qwen, LLaMA, DeepSeek)
+                                        #   - encoder: Encoder-only model for embeddings (BERT, RoBERTa, MiniLM)
+    tokenizer: null                     # Separate tokenizer path/repo (null = reuse weights `path`)
+    adapter: null                       # Internal ModelAdapter:
+                                        #   - null: Auto-detected from model architecture (gpt2, llama, qwen, etc.)
+                                        #   - Registered custom adapter name if using non-standard architectures
+    gradient_checkpointing: false       # Activate gradient checkpointing:
+                                        #   - true: Saves ~30-50% activation VRAM at ~20-30% compute overhead
+                                        #   - false: Maximum training throughput when VRAM is sufficient
+    trainable: true                     # Enable student parameter updates:
+                                        #   - true: Normal trainable weights
+                                        #   - false: Freeze student backbone (e.g. train auxiliary projector only)
+    lora: null                          # PEFT LoRA specification (null = Full Parameter Fine-Tuning).
+                                        # Example LoRA configuration:
+                                        #   lora:
+                                        #     r: 16                                  # LoRA rank
+                                        #     lora_alpha: 32                         # Scaling factor alpha
+                                        #     lora_dropout: 0.05                     # Dropout for LoRA layers
+                                        #     target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+                                        #     bias: "none"                           # "none" | "all" | "lora_only"
+    attn_implementation: null           # Attention computation backend:
+                                        #   - null: Automatic selection via Transformers library
+                                        #   - sdpa: PyTorch Scaled Dot Product Attention (native, fast, reliable)
+                                        #   - flash_attention_2: Requires flash-attn (fastest and most memory-efficient)
+                                        #   - eager: HuggingFace vanilla implementation (slowest, for debugging)
+    trust_remote_code: false            # true = allow execution of custom Python code from HF repo
+    placement: same_device              # Device placement strategy:
+                                        #   - same_device: Primary allocated GPU device
+                                        #   - cpu: Host RAM (useful for local testing/debugging)
+                                        #   - device:N: Explicit GPU ordinal
+                                        #   - shard: Sharded across multiple GPUs (e.g. via FSDP2)
+
+  # -------------------------------------------------------------------------------------------------
+  # Teacher (Model providing distillation supervision - OPTIONAL, null for SFT/RL)
+  # -------------------------------------------------------------------------------------------------
+  teacher:
+    path: Qwen/Qwen3-4B-Instruct-2507   # HF repo or local directory for the teacher model
+    dtype: bf16                         # Teacher dtype: bf16 | fp16 | fp32
+    task: causal_lm                     # causal_lm | encoder
+    tokenizer: null                     # null = reuse teacher path tokenizer (or student tokenizer if identical)
+    adapter: null                       # null = auto-detect architecture
+    trainable: false                    # Teacher is always frozen by default (no backward pass)
+    trust_remote_code: false            # true | false
+    placement: same_device              # Device placement:
+                                        #   - same_device: Colocated on the same GPU as student (if VRAM allows)
+                                        #   - cpu: Offload teacher to host RAM (slower forward, saves VRAM)
+                                        #   - device:N: Separate GPU (e.g. student on cuda:0, teacher on cuda:1)
+                                        #   - shard: Shard large teacher model across multiple GPUs
+
+
+# ===================================================================================================
+# 2. DATA (Training Datasets and In-Memory Transforms)
+# ===================================================================================================
+data:
+  # -------------------------------------------------------------------------------------------------
+  # Training Data Source
+  # -------------------------------------------------------------------------------------------------
+  train:
+    type: jsonl                         # Source reader format:
+                                        #   - jsonl: Standard JSON Lines format, 1 JSON object per row (recommended)
+                                        #   - csv: Delimited CSV table with headers
+                                        #   - parquet: High-performance columnar Apache Parquet
+                                        #   - hf_dataset: Direct dataset load from HF Hub or local disk
+                                        #   - artifact_records: Load records from an offline pipeline DAG node
+    path: examples/data/train_sample.jsonl  # File path to the dataset
+    limit: null                         # Record limit cap (null = load all, integer for rapid smoke tests)
+    id_field: id                        # Unique record identifier field (default "id")
+
+  # Validation data source (null to skip validation)
+  eval: null
+
+  # -------------------------------------------------------------------------------------------------
+  # In-Memory Transforms Chain
+  # Executed sequentially per record upon DataLoader loading.
+  # -------------------------------------------------------------------------------------------------
+  transforms:
+    - type: tokenize_sft                # Standard tokenization for SFT / Distillation:
+                                        # Available transform types:
+                                        #   - tokenize_sft: Maps {prompt, response} -> token_ids + labels
+                                        #   - tokenize_prompt: Tokenizes prompt only (for on-policy rollout / RL)
+                                        #   - tokenize_listwise: Pairs/lists of responses (for DPO, pairwise PO)
+                                        #   - tokenize_text: Raw unlabelled text (for encoder embeddings)
+                                        #   - tokenize_cot: Tokenizes with reasoning/CoT step offsets marked
+                                        #   - render_cot: Formats CoT reasoning with <think> delimiters
+                                        #   - segment: Segments responses: sentence | paragraph | cue
+                                        #   - token_offsets: Computes character offsets [start, end)
+                                        #   - load_vocab_map: Loads cross-tokenizer vocabulary projection map
+                                        #   - align: Computes token alignments via Aligner plugins: exact_token |
+                                        #            boundary_interp | dtw_edit | char_span | lcs_span | parent_groups
+                                        #   - allocate_iwc: Inverse-Weighted CoT step weight allocation
+                                        #   - tail_boost: Boosts weights for concluding reasoning steps
+                                        #   - provenance: Distinguishes token origin (prompt, prefix, continuation)
+      prompt_field: prompt              # Key name containing user prompt in JSONL
+      response_field: response          # Key name containing target response in JSONL
+      use_chat_template: true           # true = apply tokenizer Jinja chat template automatically
+      chat_template_kwargs:             # Optional chat template arguments:
+        enable_thinking: false          # Disable thinking mode for CoT models (e.g. Qwen3, DeepSeek)
+      add_eos: true                     # true = append EOS token to the end of responses
+      prompt_add_special_tokens: true   # true = prepend BOS / special tokens to prompts
+      truncation: drop                  # Handling strategy when total tokens exceed max_length:
+                                        #   - drop: Drop the sample completely (preserves semantic integrity)
+                                        #   - truncate: Truncate trailing tokens to fit max_length
+      keep_text: true                   # Retain raw text strings in batch for logging or teacher re-tokenization
+      teacher: false                    # true = tokenizes concurrently for teacher (cross-tokenizer setups)
+      teacher_prompt_text: same         # same = teacher sees the identical prompt formatted for student
+
+  # -------------------------------------------------------------------------------------------------
+  # Length and Padding Specifications
+  # -------------------------------------------------------------------------------------------------
+  max_length: 1024                      # Maximum token sequence length (prompt + response)
+  padding: dynamic                      # Padding strategy:
+                                        #   - dynamic: Dynamically pads to max length in current micro-batch (saves VRAM)
+                                        #   - max_length: Padded statically to max_length
+  pad_to_multiple_of: 8                 # Pad sequence lengths to multiples of 8 (NVIDIA Tensor Core optimization)
+  packing: false                        # true = concatenate multiple short samples into max_length rows
+  num_workers: 0                        # PyTorch DataLoader worker subprocesses (0 = load in main process)
+  pin_memory: true                      # Pin host memory for faster CPU-to-GPU transfers
+
+
+# ===================================================================================================
+# 3. PIPELINE (Optional Offline Multi-Stage DAG Processing)
+# ===================================================================================================
+# Used for computationally intensive offline preprocessing before training (e.g. P-ALIGN,
+# SGL Spectral, Integrated Gradients SSFT, IMPACT Calibration, or Teacher Embeddings/Cache).
+# When running without offline DAG stages, keep empty: `pipeline: []`.
+#
+# Example DAG syntax when enabled:
+# pipeline:
+#   - stage: prepare_dataset            # Stage plugin name: prepare_dataset | generate | ig_attribution |
+#     name: data                        # spectral_capture | answer_gain | build_weights | score | teacher_cache |
+#     source: {type: jsonl, path: ...}  # embed_teacher | impact_calibrate | vocab_map | align_precompute | train_recipe
+#     transforms: [...]
+#   - stage: spectral_capture
+#     name: spectral
+#     inputs: {data: data}              # Binds upstream node output to stage input slot
+#     model: ${models.student.path}
+#   - stage: build_weights
+#     name: weights
+#     inputs: {data: data, signals: spectral}
+#     dataset: true                     # Marks this node as the output dataset provider for training
+pipeline: []
+
+
+# ===================================================================================================
+# 4. TEACHER (Teacher Signals and Interface)
+# ===================================================================================================
+teacher:
+  provider: hf_frozen                   # Teacher signal provider backend:
+                                        #   - hf_frozen: Frozen HuggingFace model forward pass
+                                        #   - none: No teacher forward (for pure SFT, self-generated RL, etc.)
+                                        #   - self: On-Policy Self-Distillation (OPSD, SDPO, RLSD):
+                                        #       weight_policy: lora_disabled (disables LoRA adapter as reference)
+                                        #       weight_policy: {type: ema, rate: 0.05} (exponential moving average)
+                                        #       weight_policy: {type: periodic_sync, every: 100} (sync every N steps)
+                                        #   - cache: Replay precomputed logits/top-k from disk cache:
+                                        #       kind: topk | adv_sparse, k: 50
+                                        #   - embedding_store: Read embeddings precomputed by embed_teacher stage
+                                        #   - vllm_scorer: Score sequence log probabilities via remote vLLM server
+
+  input: same                           # Input representation passed to teacher:
+                                        #   - same: Teacher shares student input_ids / text representations
+                                        #   - pretokenized: Teacher uses separate token sequences from cross-tokenizer
+                                        #   - privileged_prompt: Teacher receives privileged prompts (e.g. ground truth solutions)
+                                        #   - reason_first: Teacher generates rationale before answering
+                                        #   - sdpo_reprompt: Reprompt teacher with previous failure trajectories
+                                        #   - retokenize: Decode student text and re-encode with teacher tokenizer
+
+
+# ===================================================================================================
+# 5. PRODUCER & ROLLOUT (Batch Distribution and On-Policy Generation)
+# ===================================================================================================
+producer:
+  type: dataset                         # Batch producer type:
+                                        #   - dataset: Supervised training from static dataset (SFT / Off-policy KD)
+                                        #       shuffle: true | false
+                                        #       drop_last: true | false
+                                        #       group_by_length: true | false (clusters similar lengths to minimize padding)
+                                        #       length_bucket_mult: 50
+                                        #   - listwise: Pairwise/listwise data for preference objectives (DPO, SimPO, CTPD)
+                                        #       pad_groups_to: 2 (chosen and rejected)
+                                        #   - mixed: Mixed off-policy dataset and on-policy rollouts (GKD, OPSD)
+                                        #       lmbda: 0.5 (on-policy generation proportion in [0.0, 1.0])
+                                        #       sampling: {temperature: 1.0, top_p: 0.95, top_k: 20, max_new_tokens: 1024}
+                                        #   - adaptive_sgo: Adaptive on-policy sampling based on dev loss divergence (DistiLLM)
+                                        #       init_threshold: 0.0, schedule: decreasing, capacity: 1000, sampling: {...}
+                                        #   - rollout_group: Samples n completions per prompt for RL (GRPO, SDPO, RLSD)
+                                        #       n: 8, sampling: {temperature: 1.2, max_new_tokens: 16000}, verifier: math_verify
+                                        #   - packed_dataset: Packs multiple sequences into max_tokens rows
+                                        #   - pbsd_online: PBSD online policy sampling
+                                        #   - replay: Replay buffer for online RL
+  shuffle: true
+  drop_last: true
+  group_by_length: false
+  length_bucket_mult: 50
+
+# Rollout Engine configuration when using on-policy producers (mixed / rollout_group / adaptive_sgo)
+# For standard off-policy distillation, set `rollout: null`.
+rollout: null
+# Example vLLM Colocate configuration on shared GPU:
+# rollout:
+#   type: vllm_colocate                 # vllm_colocate (shared GPU) | vllm_server (separate server) | hf (native HF)
+#   gpu_memory_utilization: 0.3         # VRAM fraction allocated for vLLM KV cache (e.g. 0.3 = 30%)
+#   lora_mode: hot_load                 # hot_load = dynamically sync newest LoRA weights into vLLM engine
+
+
+# ===================================================================================================
+# 6. ALGORITHM & STEP STRATEGY (Optimization Workflow and Step Execution)
+# ===================================================================================================
+algorithm: standard                     # Training loop algorithm:
+                                        #   - standard: Standard gradient-based loss computation and backward
+                                        #   - rl: Reinforcement Learning (GRPO, SDPO, RLSD):
+                                        #       adv_transforms: [{type: rlsd_reweight, lam: 0.5, clip: 0.2}]
+                                        #       rollout_is: token | sequence (importance sampling scope)
+                                        #   - compute_loss: Custom standalone loss function provided via plugin:
+                                        #       type: compute_loss, fn: my_module.my_custom_loss
+
+step:
+  type: standard                        # Optimizer step strategy:
+                                        #   - standard: Standard gradient accumulation across micro-batches
+                                        #       skip_nonfinite: true (automatically skip step on NaN/Inf loss)
+                                        #   - sam: Sharpness-Aware Minimization (converges to flatter minima)
+                                        #       rho: 0.05
+                                        #   - asam: Adaptive SAM (scales perturbation by parameter norm)
+                                        #       rho: 0.05
+                                        #   - ppo_epochs: Multi-epoch PPO optimization over rollout buffer
+                                        #       epochs: 2, mini_batches: 1
+                                        #   - multi_objective_grad: Balances gradients across multiple objectives
+  skip_nonfinite: true
+
+
+# ===================================================================================================
+# 7. LOSS (Objectives, Aggregators, and Hyperparameter Schedules)
+# ===================================================================================================
+loss:
+  # -------------------------------------------------------------------------------------------------
+  # Aggregator (Combines individual loss terms)
+  # -------------------------------------------------------------------------------------------------
+  aggregator:
+    type: kd_mix                        # Aggregator plugin:
+                                        #   - kd_mix: Classic distillation mix: (1 - kd_ratio) * CE + kd_ratio * KD
+                                        #   - weighted_sum: Linear weighted combination: sum(weight_i * loss_i)
+                                        #   - gradmag: Automatically balances gradient magnitudes between CE and KD
+    kd_ratio: 0.5                       # Trade-off coefficient between CE and KD in [0.0, 1.0]:
+                                        #   - 1.0: Pure distillation loss (DistiLLM standard setting)
+                                        #   - 0.5: Equal 50/50 balance between ground truth (CE) and teacher imitation (KD)
+                                        #   - 0.0: Standard Cross-Entropy SFT without distillation
+    ce_alias: nll                       # Name alias identifying the CE term (scaled by 1 - kd_ratio)
+
+  # -------------------------------------------------------------------------------------------------
+  # Loss Terms (Constituent objective criteria)
+  # -------------------------------------------------------------------------------------------------
+  terms:
+    # 1. Cross-Entropy loss over supervised answer tokens
+    - criterion: nll                    # Registered criterion name in CRITERIONS registry:
+                                        # Comprehensive catalog of available criteria:
+                                        #   * Token-level KD:
+                                        #     - nll: Negative Log-Likelihood / Cross-Entropy
+                                        #     - token_kd: Token divergences (fkl, rkl, jsd, tvd, sfkl, srkl, csd, gjsd, symkl)
+                                        #     - weighted_nll: Token-weighted NLL
+                                        #     - topk_kd: Distillation over teacher top-k logits only
+                                        #   * Preference Alignment & Distillation:
+                                        #     - dpo: Direct Preference Optimization (sigmoid, ipo, bpo, simpo)
+                                        #     - po: Extended Preference Objectives (adpo, tdpo, beta_dpo, epsilon_dpo, ra_dpo)
+                                        #     - kto: Kahneman-Tversky Optimization
+                                        #     - chosen_nll: Supervised NLL on chosen response only
+                                        #     - compressed_kl: KL over compressed distributions
+                                        #     - ctpd, dp3o, tvkd, vpd, adpa, pbsd, ppd
+                                        #   * RL Objectives:
+                                        #     - ppo_clip: PPO / GRPO clipped surrogate objective
+                                        #     - sdpo_distill: SDPO self-feedback distillation divergence
+                                        #     - tinker_rkl: OPSD Tinker policy gradient Reverse-KL
+                                        #   * Cross-Tokenizer KD:
+                                        #     - dskd, dskd_cma: Dual-Space KD / Cross-Model Attention
+                                        #     - dskdv2, dskdv2_eta: DSKDv2 with Exact Token Alignment
+                                        #     - uld: Universal Logit Distillation
+                                        #     - mined_fkl: Minimum Edit Distance forward KL
+                                        #     - multilevel_ot: Multi-Level Optimal Transport
+                                        #     - escot: Elastic Span Constrained Optimal Transport
+                                        #     - alm: Attention-based Layer Mapping
+                                        #     - sra: Sequence-level Representation Alignment
+                                        #     - mcw_kd: Min-Cost Wasserstein KD
+                                        #     - residualkd, residual_pretrain: Two-phase Residual Projector KD
+                                        #     - impact: Information-Maximizing Projection and Alignment of Cross-Tokenizer
+                                        #   * Long-CoT Reasoning:
+                                        #     - region_nll: SARW prefix/continuation region weighting
+                                        #     - transition_loss: Transition state prediction between reasoning steps
+                                        #     - per_source_objective: Mixed NLL/DFT according to token provenance
+                                        #   * Embedding Distillation:
+                                        #     - infonce: SimCSE InfoNCE contrastive objective
+                                        #     - cosine_to_teacher: Cosine distance to teacher embeddings
+                                        #     - sim_matrix_mse: Batch similarity matrix MSE
+      weight: 1.0                       # Term weight multiplier
+      alias: nll                        # Term alias identifier
+      params:
+        chunk_size: 1024                # Token chunk size for chunked cross-entropy (prevents VRAM OOM)
+
+    # 2. Token-level Distillation Loss
+    - criterion: token_kd
+      alias: kd
+      weight: 1.0
+      params:
+        divergence: fkl                 # Probability divergence metric:
+                                        #   - fkl: Forward KL (KL(P_teacher || P_student) - mode-covering)
+                                        #   - rkl: Reverse KL (KL(P_student || P_teacher) - mode-seeking, sharp outputs)
+                                        #   - jsd: Jensen-Shannon Divergence (symmetric, robust; add jsd_lam: 0.9)
+                                        #   - tvd: Total Variation Distance (L1 probability distance norm)
+                                        #   - sfkl: Skewed Forward KL (mixes teacher and student with skew_alpha: 0.1)
+                                        #   - srkl: Skewed Reverse KL (mixes student and teacher with skew_alpha: 0.1)
+                                        #   - csd: Conditional Student Divergence (penalizes student deficient tokens)
+                                        #   - gjsd: Generalized JSD (parameterized by beta: 0.5)
+                                        #   - symkl: Symmetric KL ((Forward_KL + Reverse_KL) / 2)
+        temperature: 1.0                # Logits temperature softening factor (higher = smoother probability distribution)
+        chunk_size: 1024                # Token chunk size for softmax/divergence computation (avoids giant [B, T, V] tensor)
+
+  # -------------------------------------------------------------------------------------------------
+  # Hyperparameter Schedules
+  # Modulates loss weights or hyperparameter values over training steps (via param_schedule callback).
+  # -------------------------------------------------------------------------------------------------
+  schedules: {}
+  # Example warmup schedule for KD loss weight from 0.0 to 1.0 over the first 10% of training:
+  # schedules:
+  #   "kd.weight":
+  #     type: linear_warmup              # linear_warmup | cosine | constant
+  #     start: 0.0
+  #     end: 1.0
+  #     until: 0.1                      # Applied over the first 10% of total training duration
+
+
+# ===================================================================================================
+# 8. OPTIM (Optimizers, Parameter Group Rules, and LR Schedulers)
+# ===================================================================================================
+optim:
+  lr: 2.0e-5                            # Base default learning rate
+  weight_decay: 0.0                     # Base default weight decay coefficient
+
+  # -------------------------------------------------------------------------------------------------
+  # Parameter Groups: Grouping rules (first matching rule applies)
+  # Allows customizing lr, weight_decay, or separate optimizers per layer or module subset.
+  # -------------------------------------------------------------------------------------------------
+  groups:
+    # Group 1: Disable weight decay for Bias and LayerNorm / RMSNorm parameters (standard LLM best practice)
+    - name: no_decay
+      match:
+        ndim_le: 1                      # Parameters with ndim <= 1 (1D vectors and 0D scalars)
+      weight_decay: 0.0
+
+    # Group 2: Default parameter group (2D Linear projection matrices)
+    - name: default
+      match: {}                         # Matches all remaining parameters
+      lr: 2.0e-5
+      weight_decay: 0.01
+
+    # Additional supported matcher predicates:
+    #   - regex: '(embeddings|pooler|head)'            # Matches parameter names via regular expression
+    #   - layer_range: [0, 3]                          # Matches Transformer layer index range
+    #   - ndim: 2                                      # Matches 2D matrices (Linear weights - tailored for Muon)
+    #   - group: projector                             # Matches by custom group tag assigned by module
+    #   - owner: modules                               # Matches auxiliary modules external to student backbone
+
+  # -------------------------------------------------------------------------------------------------
+  # Optimizers
+  # -------------------------------------------------------------------------------------------------
+  optimizers:
+    default:
+      type: adamw                       # Optimizer implementation:
+                                        #   - adamw: Standard PyTorch AdamW (stable, industry standard)
+                                        #   - adamw_8bit: BitsAndBytes 8-bit AdamW (~75% optimizer states memory savings)
+                                        #   - muon: Muon 2D Matrix Optimizer (extremely fast for LLMs, requires ndim: 2)
+                                        #   - lion: Lion Optimizer (EvoLved Sign Momentum)
+                                        #   - sgd: Stochastic Gradient Descent (with momentum)
+      betas: [0.9, 0.999]               # Momentum coefficients beta1 and beta2
+      eps: 1.0e-8                       # Numerical stability epsilon
+
+  # -------------------------------------------------------------------------------------------------
+  # LR Schedulers (Learning Rate Schedules)
+  # -------------------------------------------------------------------------------------------------
+  schedulers:
+    - type: cosine                      # Scheduler type:
+                                        #   - cosine: Linear warmup followed by Cosine decay
+                                        #   - linear: Linear warmup followed by linear decay to 0
+                                        #   - constant: Constant learning rate (optional warmup)
+                                        #   - wsd: Warmup-Stable-Decay (Warmup -> Flat plateau -> Sharp decay)
+                                        #   - cosine_annealing: Cyclical periodic cosine annealing
+      warmup_ratio: 0.03                # Warmup proportion (3% of total training steps)
+      min_lr_ratio: 0.1                 # Minimum learning rate ratio at the end of training (10% of base lr)
+
+
+# ===================================================================================================
+# 9. GRAD (Gradient Management and Transforms)
+# ===================================================================================================
+grad:
+  clip_norm: 1.0                        # Global gradient norm clipping threshold:
+                                        #   - 1.0: Standard default, prevents gradient explosion
+                                        #   - null: Disables clipping (e.g. when DeepSpeed manages its own clipping)
+
+  # Hooks applied to activation gradients during backward pass
+  hooks: []
+  # Example hooks:
+  #   - type: probe                     # Logs ||dL/dh|| norm without mutating gradients
+  #   - type: project_out_topk_svd      # Projects out top-k singular components from gradient
+
+  # Transforms applied to parameter gradients prior to optimizer step
+  transforms: []
+  # Example transforms:
+  #   - type: pcgrad                    # Projected Conflicting Gradients (mitigates multi-objective conflicts)
+  #   - type: log_grad_norm             # Logs gradient norm per parameter group
+
+
+# ===================================================================================================
+# 10. ENGINE (Execution Environment and Distributed Training)
+# ===================================================================================================
+engine:
+  type: local                           # Engine backend architecture:
+                                        #   - local: Single CPU or single standalone GPU (default)
+                                        #   - accelerate: Distributed multi-GPU with DeepSpeed ZeRO-1/2/3
+                                        #   - fsdp2: Native PyTorch Fully Sharded Data Parallel generation 2
+  device: auto                          # Execution device:
+                                        #   - auto: Automatically detects GPU (cuda:0) or falls back to CPU
+                                        #   - cuda / cuda:N: Explicit GPU target
+                                        #   - cpu: Enforces CPU execution
+  mixed_precision: bf16                 # Mixed Precision setting:
+                                        #   - bf16: Bfloat16 (recommended for Ampere and newer GPUs)
+                                        #   - fp16: Float16 (with automatic GradScaler)
+                                        #   - "no": Single precision FP32 (must be quoted string)
+
+# Example multi-GPU DeepSpeed ZeRO-2 configuration with CPU Optimizer Offloading:
+# engine:
+#   type: accelerate
+#   backend: deepspeed
+#   mixed_precision: bf16
+#   deepspeed_config: recipes/_base_/deepspeed/zero2_offload.json
+#   batch_size: ${train.batch_size}
+#   micro_batch_size: ${train.micro_batch_size}
+#   gradient_clipping: ${grad.clip_norm}
+
+
+# ===================================================================================================
+# 11. CALLBACKS (Monitoring, Checkpointing, and Evaluation Lifecycle)
+# ===================================================================================================
+callbacks:
+  # Logs training progress to console and appends metrics to JSONL file
+  - type: console_logger
+    jsonl: true                         # true = writes metrics to <output_dir>/metrics.jsonl every log_every steps
+
+  # Detects and aborts training early if loss becomes non-finite (NaN/Inf) consecutively
+  - type: nan_guard
+    patience: 5                         # Terminates run if 5 consecutive steps produce NaN or Inf loss
+
+  # Checkpoints model and optimizer states
+  - type: checkpoint
+    every: 500                          # Checkpoint frequency (every 500 optimizer steps, or "epoch")
+    at_end: true                        # Always save a complete checkpoint upon training completion
+    keep_last: 3                        # Maximum number of recent checkpoints retained (deletes older ones)
+    keep_best: 1                        # Number of top-performing checkpoints retained indefinitely
+    metric: eval/loss                   # Metric used to rank best checkpoints
+    mode: min                           # min = lower metric value is better | max = higher value is better
+
+  # Periodic evaluation on evaluation data source
+  - type: evaluate
+    every: epoch                        # "epoch" = evaluate at each epoch boundary | integer = every N steps
+    at_start: true                      # true = run initial evaluation before epoch 1 to establish baseline
+
+
+# ===================================================================================================
+# 12. EVAL (Model Capability Evaluators)
+# ===================================================================================================
+eval:
+  # Evaluates validation loss on the development dataset
+  - type: dev_loss
+    data:
+      type: jsonl
+      path: data/dev.jsonl
+
+  # Evaluates text generation quality using ROUGE and Exact Match metrics
+  - type: generation_rouge
+    data:
+      type: jsonl
+      path: data/dev.jsonl
+    sampling:
+      max_new_tokens: 128               # Maximum generated tokens during autoregressive decoding
+      temperature: 0.0                  # Greedy decoding (0.0) for deterministic evaluation
+
+  # Additional specialized evaluators:
+  #   - type: math_passk                # Evaluates mathematical reasoning (Pass@k on AIME24 or MATH500)
+  #     dataset: math500
+  #     n: 8
+  #     temperature: 0.7
+  #   - type: embedding_sts             # Evaluates Semantic Textual Similarity correlation
+  #     data: {type: csv, path: data/eval_sts.csv}
+
+
+# ===================================================================================================
+# 13. TRAIN (Global Training Loop Parameters)
+# ===================================================================================================
+train:
+  output_dir: outputs/fkl_full          # Directory saving checkpoints, metrics, logs, and resolved recipe
+  epochs: 3                             # Total passes through training dataset (applied when max_steps is null)
+  max_steps: null                       # Maximum optimizer steps cap.
+                                        # Set to an integer (e.g. 1000) to terminate strictly by steps (overrides epochs).
+  batch_size: 32                        # Global effective batch size per optimizer update.
+                                        # Gradient accumulation steps are calculated automatically:
+                                        # grad_accum = batch_size / (micro_batch_size * num_gpus).
+  micro_batch_size: 4                   # Per-device batch size for a single forward/backward pass.
+                                        # batch_size MUST be evenly divisible by micro_batch_size.
+  seed: 42                              # Random seed for reproducible weight initialization and data shuffling
+  log_every: 10                         # Progress logging cadence (every 10 optimizer steps)
+  eval_every: null                      # Evaluation cadence override (null = controlled by callbacks.evaluate)
+  save_every: null                      # Checkpoint save cadence override (null = controlled by callbacks.checkpoint)
+  resume_from: null                     # Checkpoint directory path (e.g. checkpoint-500) to resume interrupted runs
+
+
+# ===================================================================================================
+# 14. COMPAT (Backward Compatibility & Integration Options)
+# ===================================================================================================
+compat: {}
+# Advanced options for reproducing specific original paper implementations:
+#   reproduction_backend: null          # trl_kto | po_reference
+#   talas_substring_layer_bug: false    # false = fixes regex layer parsing bug in original TALAS implementation

@@ -1,0 +1,26 @@
+# Replace model/data paths with local checkpoints and records. compressed_kl is implemented in T22.
+name: dckd_listwise
+models:
+  student: {path: models/student, dtype: bf16}
+data: {max_length: 1024}
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: jsonl, path: data/preference/train.jsonl}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
+  - stage: teacher_cache
+    name: teacher_cache
+    inputs: {data: prepare}
+    dataset: true
+    model: models/teacher
+    kind: topk
+    k: 50
+    fields: [0, 1]
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: {type: cache, kind: topk}, input: same}
+loss:
+  terms:
+    - {criterion: chosen_nll, weight: 0.2}
+    - {criterion: compressed_kl, weight: 0.8}
+train: {output_dir: outputs/preference/dckd, batch_size: 8, micro_batch_size: 4}

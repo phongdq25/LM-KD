@@ -1,0 +1,15 @@
+{
+    "zero_optimization": {
+        "stage": 3,
+        "overlap_comm": true,
+        "contiguous_gradients": true,
+        "reduce_bucket_size": 2e8,
+        "stage3_prefetch_bucket_size": 2e8,
+        "stage3_param_persistence_threshold": 1e5,
+        "stage3_max_live_parameters": 1e9,
+        "stage3_max_reuse_distance": 1e9,
+        "stage3_gather_16bit_weights_on_model_save": false
+    },
+    "zero_allow_untested_optimizer": true,
+    "wall_clock_breakdown": false
+}

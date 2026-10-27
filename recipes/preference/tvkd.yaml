@@ -1,0 +1,26 @@
+name: tvkd_listwise
+models:
+  student: {path: outputs/preference/dckd, dtype: bf16}
+data: {max_length: 2048}
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: jsonl, path: data/preference/train.jsonl}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 512, max_length: 2048}
+  - stage: teacher_cache
+    name: teacher_cache
+    inputs: {data: prepare}
+    dataset: true
+    model: models/teacher
+    kind: topk
+    k: 50
+    fields: [0, 1]
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: {type: cache, kind: topk}, input: same}
+loss:
+  terms:
+    - {criterion: tvkd, weight: 1.0, params: {value_function: entropy, value_discount: 1.0}}
+train: {output_dir: outputs/preference/tvkd, batch_size: 16, micro_batch_size: 2}
+optim: {lr: 5e-7}
+

@@ -1,0 +1,5 @@
+# Runner executes stage 1 through train_recipe, then the main training job runs stage 2.
+_base_: residualkd_stage2.yaml
+name: residualkd_full
+pipeline:
+  - {stage: train_recipe, name: stage1, recipe: recipes/cross_tokenizer/residualkd_stage1.yaml}

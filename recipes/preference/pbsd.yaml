@@ -1,0 +1,22 @@
+# One LoRA model; base sees reference solution, student sees problem only.
+name: pbsd
+models:
+  student:
+    path: Qwen/Qwen3-0.6B
+    dtype: bf16
+    lora: {r: 16, lora_alpha: 32, target_modules: [q_proj, k_proj, v_proj, o_proj]}
+data:
+  train: {type: jsonl, path: data/preference/pbsd.jsonl}
+  max_length: 4096
+  transforms: [{type: tokenize_prompt, template: "{prompt}", keep_fields: [prompt, solution, answer]}]
+producer: {type: pbsd_online, sampling: {temperature: 0.7, max_new_tokens: 1024}, verifier: math_verify}
+rollout: {type: hf}
+teacher:
+  provider: {type: self, weight_policy: lora_disabled, position_map: response_shift}
+  input:
+    type: privileged_prompt
+    template: "{prompt}\nReference solution: {solution}\nSolve independently and put the answer in \\boxed{{}}."
+    fields: [prompt, solution]
+loss: {terms: [{criterion: pbsd, params: {beta: 0.1}}]}
+train: {output_dir: outputs/preference/pbsd, batch_size: 8, micro_batch_size: 2}
+optim: {lr: 1.0e-5}

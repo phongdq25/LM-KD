@@ -1,0 +1,86 @@
+name: dskd_gpt2_from_gpt2
+models:
+  student:
+    path: openai-community/gpt2
+    dtype: bf16
+    task: causal_lm
+    gradient_checkpointing: false
+    trainable: true
+    placement: same_device
+    trust_remote_code: false
+  teacher:
+    path: openai-community/gpt2-medium
+    dtype: bf16
+    task: causal_lm
+    gradient_checkpointing: false
+    trainable: true
+    placement: same_device
+    trust_remote_code: false
+data:
+  train:
+    type: jsonl
+    path: data/train.jsonl
+  transforms:
+  - type: tokenize_sft
+    use_chat_template: false
+  max_length: 1024
+  padding: dynamic
+  pad_to_multiple_of: 8
+  packing: false
+  num_workers: 0
+  pin_memory: true
+teacher:
+  provider: hf_frozen
+  input: same
+loss:
+  aggregator:
+    type: kd_mix
+    kd_ratio: 0.5
+    ce_alias: nll
+  terms:
+  - criterion: nll
+    weight: 1.0
+    params: {}
+  - criterion: dskd
+    weight: 1.0
+    alias: kd
+    params:
+      temperature: 3.0
+      kd_objective: forward_kl
+  schedules: {}
+producer: dataset
+algorithm: standard
+step: standard
+optim:
+  groups:
+  - name: projector
+    match:
+      group: projector
+    lr: 0.001
+  - name: default
+    match: {}
+  optimizers:
+    default:
+      type: adamw
+  lr: 2.0e-05
+  weight_decay: 0.0
+  schedulers:
+  - type: cosine
+    warmup_ratio: 0.03
+    min_lr_ratio: 0.1
+grad:
+  clip_norm: 1.0
+  hooks: []
+  transforms: []
+engine:
+  type: local
+  device: auto
+  mixed_precision: bf16
+train:
+  output_dir: outputs/dskd
+  epochs: 1.0
+  batch_size: 32
+  micro_batch_size: 4
+  seed: 42
+  log_every: 10
+  save: {}

@@ -1,0 +1,7 @@
+# OPSD teacher-support renormalized top-k, retaining elementwise clipping.
+_base_: opsd.yaml
+name: opsd_topk
+loss:
+  terms:
+    - {criterion: topk_kd, alias: opsd, params: {alpha: 0.0, k: 100, support: teacher, tail: renorm, token_clip: 0.05}}
+train: {output_dir: outputs/opsd_topk}

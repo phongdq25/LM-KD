@@ -1,0 +1,127 @@
+# TALAS-M baseline (embedding distillation).
+# Reference: embedding-distill/TALAS-M-main
+# Paper: TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings
+name: talas_m
+
+models:
+  student:
+    path: nreimers/MiniLMv2-L6-H384-distilled-from-BERT-Large
+    task: encoder
+    dtype: fp32
+    tokenizer: bert-base-uncased
+
+data:
+  train:
+    type: csv
+    path: data/train_full.csv
+  max_length: 256
+
+pipeline:
+  - stage: prepare_dataset
+    name: data
+    source:
+      type: csv
+      path: data/train_full.csv
+    transforms:
+      - type: tokenize_text
+        keep_text: true
+    dataset: true
+  - stage: embed_teacher
+    name: teacher_emb
+    inputs:
+      data: data
+    model: Qwen/Qwen3-Embedding-0.6B
+    pooling: last
+
+teacher:
+  provider:
+    type: embedding_store
+    node: teacher_emb
+  input: same
+
+producer:
+  type: dataset
+
+algorithm: standard
+step:
+  type: standard
+
+loss:
+  aggregator: weighted_sum
+  terms:
+    - criterion: infonce
+      weight: 0.001
+      params:
+        temperature: 0.1
+    - criterion: cosine_to_teacher
+      weight: 0.75
+      params:
+        teacher_dim: 1024
+    - criterion: sim_matrix_mse
+      weight: 1.0
+
+optim:
+  lr: 2.0e-5
+  weight_decay: 0.01
+  groups:
+    - name: projector
+      match: {owner: modules}
+      lr: 1.0e-4
+      weight_decay: 0.01
+    - name: adam_edge
+      match: {regex: 'embeddings|pooler'}
+      optimizer: adamw
+      lr: 2.0e-5
+      weight_decay: 0.01
+    - name: adam_1d
+      match: {ndim_le: 1}
+      optimizer: adamw
+      lr: 2.0e-5
+      weight_decay: 0.0
+    - name: adam_low
+      match: {layer_range: [0, 3]}
+      optimizer: adamw
+      lr: 2.0e-5
+      weight_decay: 0.01
+    - name: muon_body
+      match: {ndim: 2}
+      optimizer: muon
+      lr: 1.0e-3
+      weight_decay: 0.01
+  optimizers:
+    adamw:
+      type: adamw
+    muon:
+      type: muon
+  schedulers:
+    - type: cosine
+      warmup_ratio: 0.05
+      min_lr_ratio: 0.005
+
+grad:
+  clip_norm: 1.0
+
+engine:
+  type: local
+  device: auto
+  mixed_precision: fp32
+
+train:
+  output_dir: outputs/talas_m
+  epochs: 5
+  batch_size: 32
+  micro_batch_size: 32
+  seed: 42
+  log_every: 10
+
+eval:
+  - type: embedding_sts
+    data: {type: csv, path: data/eval_sts.csv}
+  - type: embedding_linear_probe
+    train: {type: csv, path: data/eval_cls_train.csv}
+    test: {type: csv, path: data/eval_cls_test.csv}
+  - type: embedding_pair
+    data: {type: csv, path: data/eval_pair.csv}
+
+compat:
+  talas_substring_layer_bug: false

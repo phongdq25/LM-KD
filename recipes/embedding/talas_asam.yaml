@@ -1,0 +1,26 @@
+# TALAS-ASAM baseline (embedding distillation with ASAM).
+# Reference: embedding-distill/TALAS-M-main/train_asam.py
+_base_: talas_m.yaml
+name: talas_asam
+step:
+  type: asam
+  rho: 0.05
+optim:
+  groups:
+    - name: projector
+      match: {owner: modules}
+      lr: 1.0e-4
+      weight_decay: 0.01
+    - name: default
+      match: {}
+      optimizer: adamw
+      lr: 2.0e-5
+  optimizers:
+    adamw:
+      type: adamw
+  schedulers:
+    - type: cosine
+      warmup_ratio: 0.1
+      min_lr_ratio: 0.005
+train:
+  output_dir: outputs/talas_asam

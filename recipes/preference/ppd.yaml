@@ -1,0 +1,28 @@
+name: ppd_listwise
+models:
+  student: {path: models/student, dtype: bf16}
+data: {max_length: 2048}
+pipeline:
+  - stage: prepare_dataset
+    name: raw
+    source: {type: jsonl, path: data/preference/train.jsonl}
+  - stage: score
+    name: scores
+    inputs: {data: raw}
+    mode: sequence_logprob
+    model: models/teacher
+    out_field: teacher_scores
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: artifact_records, node: scores}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 1800, max_length: 2048}
+    dataset: true
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: none, input: same}
+loss:
+  terms:
+    - {criterion: ppd, weight: 1.0, params: {beta: 10.0, exact_ranking_limit: 8}}
+train: {output_dir: outputs/preference/ppd, batch_size: 64, micro_batch_size: 2}
+optim: {lr: 8e-7}
+

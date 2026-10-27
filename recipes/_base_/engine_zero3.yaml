@@ -1,0 +1,16 @@
+# DeepSpeed ZeRO-3 (parameter sharding) through engine `accelerate` (T05).
+# Layer it LAST:  _base_: [<your recipe>.yaml, ../_base_/engine_zero3.yaml]
+# Launch:         torchrun --nproc_per_node N -m lmkd.cli train -c <recipe>.yaml
+# The engine is built before the runtime, so it mirrors train.batch_size / train.micro_batch_size /
+# grad.clip_norm through interpolation: those keys must be set in the recipe chain.
+# DS patch: train_micro_batch_size_per_gpu = micro_batch_size, gradient_accumulation_steps =
+# batch_size / (micro_batch_size x world), gradient_clipping = clip_norm, bf16/fp16 = mixed_precision.
+engine:
+  _delete_: true
+  type: accelerate
+  backend: deepspeed
+  mixed_precision: bf16
+  deepspeed_config: recipes/_base_/deepspeed/zero3.json
+  batch_size: ${train.batch_size}
+  micro_batch_size: ${train.micro_batch_size}
+  gradient_clipping: ${grad.clip_norm}
