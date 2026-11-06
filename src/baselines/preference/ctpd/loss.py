@@ -1,7 +1,6 @@
 """Contrastive Teacher Preference Distillation (CTPD).
 
 Weighted parent-token KD-TIS-DPO losses across tokenizers.
-Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:251-303
 """
 
 from __future__ import annotations
@@ -83,14 +82,12 @@ def ctpd_loss(
 
 @CRITERIONS.register(
     "ctpd",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:268",
 )
 class CTPD(Criterion):
     """Cross-tokenizer preference distillation with weighted parent-token groups.
 
     Chosen response is index 0, rejected is index 1.
     Formula: -log sigmoid(beta * (margin_chosen - margin_rejected)).
-    Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:251-303
     """
 
     needs_teacher: ClassVar[bool] = True

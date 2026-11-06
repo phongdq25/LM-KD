@@ -16,7 +16,6 @@ from lmkd.teachers.signals import TeacherSignalSpec
 @CRITERIONS.register(
     "fdd",
     paper="Beyond Logits: Aligning Feature Dynamics for Effective Knowledge Distillation",
-    source="ACL: Feature Dynamics Distillation",
 )
 class FDDCriterion(Criterion):
     """Feature Dynamics Distillation (FDD) Criterion.

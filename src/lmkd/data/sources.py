@@ -187,7 +187,7 @@ class ParquetSource(Source):
         return {**self.cfg.model_dump(), "size": st.st_size, "mtime": int(st.st_mtime)}
 
 
-@SOURCES.register("artifact_records", source="SGL/src/sgl/palign/build.py:22-62")
+@SOURCES.register("artifact_records")
 class ArtifactRecords(Source):
     """Read records.jsonl from an upstream pipeline node (P-ALIGN assembly output)."""
 

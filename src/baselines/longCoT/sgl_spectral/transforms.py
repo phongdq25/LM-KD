@@ -25,7 +25,7 @@ FIELDS.register(FieldSpec("seq.pair_src", "ragged", torch.long, doc="[P] source 
 
 
 def select_steps_by_energy(strengths: list[float], energy_threshold: float) -> list[int]:
-    """Minimal step set whose cumulative spectral strength >= p * total (SGL selection/energy.py:4-29)."""
+    """Minimal step set whose cumulative spectral strength >= p * total."""
     if not strengths:
         return []
     total = sum(strengths)
@@ -77,7 +77,7 @@ PREFIX, CONTINUATION, JUNCTION = "P", "C", "J"
 
 
 def step_regions(step_spans: list[tuple[int, int]], boundary: int) -> list[str]:
-    """Region of each step given boundary (SGL allocation/region.py:30-40)."""
+    """Region of each step given boundary."""
     regions = []
     for start, end in step_spans:
         if end <= boundary:
@@ -98,7 +98,7 @@ def region_stable_step_weights(
     clip: float = 2.0,
     epsilon: float = 1e-8,
 ) -> list[float]:
-    """Stable step weights within each region (SGL allocation/region.py:43-67)."""
+    """Stable step weights within each region."""
     if not len(entropies) == len(lengths) == len(regions):
         raise ValueError("entropies, lengths and regions must have the same number of steps")
     weights = [1.0] * len(entropies)
@@ -126,7 +126,7 @@ def region_gain_ratio(
     gamma: float = 1.0,
     tail_fraction: float = 0.0,
 ) -> tuple[float, float, float]:
-    """Corpus answer gain ratio (SGL allocation/region.py:69-98)."""
+    """Corpus answer gain ratio."""
     if not 0.0 <= tail_fraction < 1.0:
         raise ValueError("tail_fraction must be in [0, 1)")
     totals = {PREFIX: [0.0, 0], CONTINUATION: [0.0, 0]}
@@ -148,7 +148,7 @@ def region_gain_ratio(
 
 
 def region_budget(lengths: list[int], regions: list[str], ratio: float) -> list[float]:
-    """Per-step budget coefficient b_r (SGL allocation/region.py:100-111)."""
+    """Per-step budget coefficient b_r."""
     if ratio <= 0:
         raise ValueError("ratio must be positive")
     prefix_mass = sum(length for length, region in zip(lengths, regions) if region == PREFIX)
@@ -166,7 +166,7 @@ def boost_tail(
     tail_tokens: int,
     boost: float,
 ) -> list[float]:
-    """Tail boost with sample mass preserved (SGL transforms/tail_boost.py:19-32)."""
+    """Tail boost with sample mass preserved."""
     if tail_tokens < 0 or boost <= 0:
         raise ValueError("tail_tokens must be >= 0 and boost > 0")
     weights = [float(w) for w in loss_weights] if loss_weights is not None else [float(m) for m in loss_mask]
@@ -181,11 +181,10 @@ def boost_tail(
     return weights
 
 
-@TRANSFORMS.register("select_energy_top_p", source="SpectralGuidedLearning/src/sgl/selection/energy.py:4-29")
+@TRANSFORMS.register("select_energy_top_p")
 class SelectEnergyTopP(Transform):
     """Energy-based step selection with stop token preservation.
 
-    Source: SGL selection/energy.py:4-47, selection/build_masks.py:19-51.
     """
 
     requires = ("seq.steps", "signals.step_strength")
@@ -241,11 +240,10 @@ def _paint_step_weights(
     return weights
 
 
-@TRANSFORMS.register("allocate_region", source="SpectralGuidedLearning/src/sgl/allocation/region.py:30-111")
+@TRANSFORMS.register("allocate_region")
 class AllocateRegion(CorpusTransform):
     """Student-aligned region weighting (SARW) across prefix and continuation.
 
-    Source: SGL allocation/region.py:30-111, allocation/build.py:96-118.
     """
 
     requires = ("seq.loss_mask", "meta.selected_steps", "meta.prefix_boundary")
@@ -268,7 +266,7 @@ class AllocateRegion(CorpusTransform):
         return self.cfg.variant in ("region-gain", "sarw")
 
     def fit(self, samples: list[dict[str, Any]], ctx: DataContext) -> None:
-        """Corpus statistic (SGL allocation/build.py:96-118): needs the WHOLE corpus, never a chunk."""
+        """Corpus statistic: needs the whole corpus, never a chunk."""
         if not self._needs_ratio():
             self.ratio = 1.0
             return
@@ -358,7 +356,7 @@ _PARAGRAPH_BREAK = re.compile(r"\n{2,}")
 
 
 def cot_char_span(response: str) -> tuple[int, int]:
-    """Character span of CoT inside response (SGL transforms/step_transitions.py:19-33)."""
+    """Character span of CoT inside response."""
     close = response.find("</think>")
     if close < 0:
         return 0, len(response)
@@ -368,7 +366,7 @@ def cot_char_span(response: str) -> tuple[int, int]:
 
 
 def split_cot_char_cuts(response: str) -> list[int]:
-    """Paragraph breaks inside CoT (SGL transforms/step_transitions.py:35-47)."""
+    """Paragraph breaks inside CoT."""
     start, end = cot_char_span(response)
     cot = response[start:end]
     if not cot.strip():
@@ -382,7 +380,7 @@ def split_cot_char_cuts(response: str) -> list[int]:
 
 
 def merge_short_steps(spans: list[tuple[int, int]], min_step_tokens: int) -> list[tuple[int, int]]:
-    """Merge steps shorter than min_step_tokens (SGL transforms/step_transitions.py:50-60)."""
+    """Merge steps shorter than min_step_tokens."""
     merged: list[tuple[int, int]] = []
     for start, end in spans:
         if merged and (end - start < min_step_tokens or merged[-1][1] - merged[-1][0] < min_step_tokens):
@@ -393,7 +391,7 @@ def merge_short_steps(spans: list[tuple[int, int]], min_step_tokens: int) -> lis
 
 
 def step_token_spans_from_cuts(cuts: list[int], token_starts: list[int], offset: int = 0) -> list[tuple[int, int]]:
-    """Map character cuts to absolute token spans (SGL transforms/step_transitions.py:63-72)."""
+    """Map character cuts to absolute token spans."""
     if len(cuts) < 2:
         return []
     bounds = [bisect.bisect_left(token_starts, cut) for cut in cuts]
@@ -407,7 +405,7 @@ def build_transition_fields(
     sequence_length: int,
     min_step_tokens: int = 8,
 ) -> dict:
-    """Next-step representation objective fields (SGL transforms/step_transitions.py:74-105)."""
+    """Next-step representation objective fields."""
     spans = step_token_spans_from_cuts(split_cot_char_cuts(response), token_starts, response_offset)
     spans = merge_short_steps(spans, min_step_tokens)
 
@@ -420,11 +418,10 @@ def build_transition_fields(
     return {"step_id": step_id, "step_end": step_end, "num_steps": len(spans), "pair_src": pair_src}
 
 
-@TRANSFORMS.register("tail_boost", source="SpectralGuidedLearning/src/sgl/transforms/tail_boost.py:19-32")
+@TRANSFORMS.register("tail_boost")
 class TailBoost(Transform):
     """Boost loss on concluding supervised tokens while preserving sample mass.
 
-    Source: SGL transforms/tail_boost.py:19-32.
     """
 
     requires = ("seq.loss_mask",)
@@ -445,11 +442,10 @@ class TailBoost(Transform):
         return sample
 
 
-@TRANSFORMS.register("provenance", source="SpectralGuidedLearning/src/sgl/transforms/provenance.py:29-82")
+@TRANSFORMS.register("provenance")
 class Provenance(Transform):
     """Tag per-token origin (prompt=0, prefix=1, continuation=2, junction=3).
 
-    Source: SGL transforms/provenance.py:29-82.
     """
 
     requires = ("seq.response_span", "meta.response_text", "meta.token_starts")
@@ -489,11 +485,10 @@ class Provenance(Transform):
         return sample
 
 
-@TRANSFORMS.register("step_transitions", source="SpectralGuidedLearning/src/sgl/transforms/step_transitions.py:19-105")
+@TRANSFORMS.register("step_transitions")
 class StepTransitions(Transform):
     """Construct step representations and transition pairs for L_trans.
 
-    Source: SGL transforms/step_transitions.py:19-105.
     """
 
     requires = ("seq.response_span", "meta.response_text", "meta.token_starts")

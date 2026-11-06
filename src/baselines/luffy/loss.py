@@ -1,7 +1,6 @@
 """LUFFY: Learning to Reason Under Off-Policy Guidance - Loss Criterion.
 
 Paper: LUFFY: Learning to Reason Under Off-Policy Guidance (NeurIPS 2025)
-Source: LUFFY/luffy/verl/verl/mix_src/mix_core_alg.py:69-251 & mix_actor.py:144-194
 
 Key Method Characteristics:
 1. Off-Policy Policy Shaping: Regularized Importance Sampling (e.g. p / (p + c)) or power/log-prob
@@ -28,7 +27,7 @@ from lmkd.models.forward import FeatureRequest, SideRequest
 
 
 def compute_sft_pure_loss(log_prob: torch.Tensor, eos_mask: torch.Tensor) -> torch.Tensor:
-    """Compute pure SFT cross-entropy loss over response tokens (LUFFY mix_core_alg.py:7-10)."""
+    """Compute pure SFT cross-entropy loss over response tokens."""
     sft_losses = -log_prob
     return masked_mean(sft_losses, eos_mask)
 
@@ -57,7 +56,7 @@ def compute_token_on_off_policy_loss(
     loss_remove_token_mean: bool = False,
     loss_remove_clip: bool = False,
 ) -> dict[str, torch.Tensor]:
-    """Compute LUFFY token-level on-policy and off-policy loss (LUFFY mix_core_alg.py:69-251).
+    """Compute LUFFY token-level on-policy and off-policy loss.
 
     Args:
         old_log_prob: Student log-probabilities from rollout [B, T].
@@ -257,13 +256,12 @@ def luffy_loss(
     return res["pg_loss"]
 
 
-@CRITERIONS.register("luffy", source="LUFFY/luffy/verl/verl/mix_src/mix_core_alg.py:69-251", force=True)
-@CRITERIONS.register("luffy_loss", source="LUFFY/luffy/verl/verl/mix_src/mix_core_alg.py:69-251", force=True)
+@CRITERIONS.register("luffy", force=True)
+@CRITERIONS.register("luffy_loss", force=True)
 class LUFFYLoss(Criterion):
     """LUFFY policy optimization criterion with regularized off-policy importance sampling.
 
     Paper: LUFFY: Learning to Reason Under Off-Policy Guidance (NeurIPS 2025)
-    Source: LUFFY/luffy/verl/verl/mix_src/mix_core_alg.py:69-251
     """
 
     requires = ("student.labels", "rollout.advantage")

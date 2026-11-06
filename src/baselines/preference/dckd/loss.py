@@ -1,7 +1,6 @@
 """Dual-Constraint Knowledge Distillation (DCKD).
 
 Compressed top-k projection KL + Chosen response NLL.
-Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:158-221
 """
 
 from __future__ import annotations
@@ -84,14 +83,12 @@ def _project_support(
 
 @CRITERIONS.register(
     "compressed_kl",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:200",
 )
 class CompressedKL(Criterion):
     """DCKD top-k + residual-bin KL on chosen and rejected responses.
 
     Chosen response is index 0, rejected is index 1.
     Formula: w_c * KL_c + w_r * KL_r on compressed teacher distributions.
-    Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:158-221
     """
 
     needs_teacher: ClassVar[bool] = False
@@ -176,14 +173,12 @@ class CompressedKL(Criterion):
 
 @CRITERIONS.register(
     "chosen_nll",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/integrations/preference_distillation.py:607",
 )
 class ChosenNLL(Criterion):
     """Supervised token negative log-likelihood on chosen response rows only.
 
     Chosen response is index 0, rejected is index 1.
     Formula: -mean_{(r,t) in chosen, supervised} log p(y_t).
-    Source: Awesome-Human-AI-Alignment-main/src/human_alignment/integrations/preference_distillation.py:607-618
     """
 
     needs_teacher: ClassVar[bool] = False

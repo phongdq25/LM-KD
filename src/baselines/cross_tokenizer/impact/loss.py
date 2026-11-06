@@ -82,12 +82,11 @@ def _project(ctx: LossContext, layer: int, W: torch.Tensor) -> torch.Tensor:
 
 
 @CRITERIONS.register(
-    "impact", source="white-box-distillation/cross-tokenizer/IMPACT/code/impact_utils.py:107-176, 779-896"
+    "impact"
 )
 class Impact(Criterion):
     """IMPACT BPIA: weighted mean over sequence tokens of 1-cosine between student and teacher prefix increments.
 
-    Source: IMPACT/code/impact_utils.py:107-176, 779-896 and criterions/IMPACT.py:20-80.
     Offsets come from the actual token ids, not retokenized text. seq_sum fixes the original extra token
     denominator; legacy_scale restores it. RAIL-KD has no criterion restriction; bi_ratio is an ablation extension.
     """

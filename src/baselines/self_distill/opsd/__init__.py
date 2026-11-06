@@ -6,8 +6,6 @@ Method overview:
 - Optional ReasonFirst analysis context or privileged solution prompts.
 
 References:
-- Paper: On-Policy Self-Distillation for Language Models
-- Source: Self-Distill/OPSD-main (opsd_trainer.py)
 """
 
 from __future__ import annotations

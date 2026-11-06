@@ -68,7 +68,7 @@ class LoraDisabled(WeightPolicy):
             yield m
 
 
-@WEIGHT_POLICIES.register("ema", source="Self-Distill/OPSD-main/opsd_trainer.py:481-624")
+@WEIGHT_POLICIES.register("ema")
 class EMA(WeightPolicy):
     """Teacher = exponential moving average of the trainable student parameters.
 
@@ -196,7 +196,7 @@ class PeriodicSync(WeightPolicy):
             self.copy.load_state_dict(state["copy"])
 
 
-@WEIGHT_POLICIES.register("trust_region", source="Self-Distill/SDPO-main/verl/workers/actor/dp_actor.py:51-64")
+@WEIGHT_POLICIES.register("trust_region")
 class TrustRegion(WeightPolicy):
     """Teacher logits = lerp(frozen reference logits, live student logits, mix)."""
 

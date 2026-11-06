@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 import torch
-import torch.nn as nn
 
 from lmkd.core.batch import Batch
 from lmkd.core.config import recipe_from_dict

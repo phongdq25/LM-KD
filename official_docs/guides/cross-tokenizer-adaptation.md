@@ -34,17 +34,38 @@ data:
 
 ---
 
-## 3. Configuring Learnable Projectors
+## 3. Learnable Projectors
 
-When student hidden dimension $d_S$ does not equal teacher hidden dimension $d_T$, configure a projector layer:
+When student hidden dimension $d_S$ does not equal teacher hidden dimension $d_T$, cross-tokenizer criteria register auxiliary projector modules (such as `LinearProjector`, `MLPProjector`, or `DSLProjector` from `lmkd.models.modules`) in `build_modules()`:
+
+```python
+from lmkd.models.modules import MLPProjector
+
+# Inside Criterion.build_modules(self, info: ModelPairInfo, modules: ModuleRegistry):
+proj_cfg = MLPProjector.Config(
+    in_dim=info.student_hidden,
+    out_dim=info.teacher_hidden,
+    hidden_dim=4096,
+    act="gelu",
+)
+self.register_aux_module(modules, "proj", MLPProjector(proj_cfg), group="projector")
+```
+
+In your recipe, optimizer parameters for auxiliary projectors are configured under `optim.groups`:
 
 ```yaml
-projector:
-  type: mlp
-  student_dim: 2048  # Llama-3.2-1B
-  teacher_dim: 3584  # Qwen2.5-7B
-  hidden_dim: 4096
-  activation: gelu
+optim:
+  groups:
+    - name: projector
+      match:
+        group: projector
+      lr: 0.0005
+    - name: default
+      match: {}
+  optimizers:
+    default:
+      type: adamw
+  lr: 2.0e-5
 ```
 
 During training, the projector weights are updated alongside the student model.

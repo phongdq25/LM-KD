@@ -1,4 +1,4 @@
-"""Layer selection parity with IMPACT/code/impact_utils.py:319-633."""
+"""Layer selection tests against reference implementation."""
 
 from types import SimpleNamespace
 

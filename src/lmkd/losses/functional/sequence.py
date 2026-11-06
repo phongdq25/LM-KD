@@ -12,8 +12,7 @@ def sequence_logps(
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Return (sequence [R], token [R,T], supervised mask [R,T]).
 
-    Matches causal_token_log_probs at target positions 1..T-1; source:
-    human_alignment/mechanisms/training/distillation_losses.py:132-155.
+    Matches causal token log-probabilities at target positions 1..T-1.
     """
     if labels.ndim != 2 or tuple(labels.shape) != view.shape_bt:
         raise ValueError("labels must have shape [R,T] matching the logits view")

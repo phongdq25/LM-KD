@@ -188,7 +188,7 @@ class _OTBase(Criterion):
 
 
 @CRITERIONS.register(
-    "ot_logits", source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/MCW_KD.py:118-176"
+    "ot_logits"
 )
 class OTLogits(_OTBase):
     """MCW OT on sorted positional logits; cross-tokenizer interpolation is positional only and has no linguistic meaning.
@@ -264,7 +264,7 @@ class OTLogits(_OTBase):
 
 
 @CRITERIONS.register(
-    "ot_hidden", source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/MCW_KD.py:178-257"
+    "ot_hidden"
 )
 class OTHidden(_OTBase):
     """MCW OT on hidden context vectors and full-sequence DTW edit paths.

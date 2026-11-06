@@ -12,7 +12,6 @@ from lmkd.rollout.hf import HFRollout
 
 @PRODUCERS.register(
     "pbsd_online",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/integrations/self_distillation.py:248-303",
 )
 class PBSDOnline(DatasetProducer):
     """Generate teacher/student pairs and gate on teacher-correct/student-wrong.

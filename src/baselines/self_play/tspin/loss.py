@@ -8,7 +8,6 @@ T-SPIN incorporates a triplet of responses:
 Objective:
 L_TSPIN = -log sigmoid(alpha * (log pi(y) - log pi(y'))) - beta * log sigmoid(alpha * (log pi(y') - log pi(y_0)))
 
-Source: APSP/trainers.py:112-125
 """
 
 from __future__ import annotations
@@ -56,7 +55,7 @@ def tspin_loss(
     return losses, chosen_rewards, rejected_rewards
 
 
-@CRITERIONS.register("tspin", source="APSP/trainers.py:112")
+@CRITERIONS.register("tspin")
 class TSPIN(Criterion):
     """Triplet Self-Play Fine-Tuning (T-SPIN) criterion."""
 

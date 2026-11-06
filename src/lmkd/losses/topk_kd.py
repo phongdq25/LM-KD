@@ -22,7 +22,6 @@ from lmkd.teachers.signals import TeacherSignalSpec
 @CRITERIONS.register(
     "topk_kd",
     paper="SDPO; OPSD top_k_loss",
-    source="Self-Distill/SDPO-main/verl/trainer/ppo/core_algos.py:1085-1182",
 )
 class TopKKD(Criterion):
     """KL/JSD on top-k support (+tail bucket or renorm)."""

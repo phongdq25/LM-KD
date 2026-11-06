@@ -1,7 +1,6 @@
 """Total Variation Preference Distillation (TVKD).
 
 Value-based preference distillation objective with optional compressed token KD.
-Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:306-388
 """
 
 from __future__ import annotations
@@ -140,14 +139,12 @@ def tvkd_loss(
 
 @CRITERIONS.register(
     "tvkd",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:352",
 )
 class TVKD(Criterion):
     """Value-based preference distillation objective (TVKD).
 
     Chosen response is index 0, rejected is index 1.
     Formula: -log sigmoid(score_chosen - score_rejected) where score = sum_t (action_t - gamma * next_value_t).
-    Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:306-388
     """
 
     needs_teacher: ClassVar[bool] = False

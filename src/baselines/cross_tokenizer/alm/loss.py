@@ -1,4 +1,4 @@
-"""ALM chunk-level binarized probability matching (IMPACT/code/criterions/ALM.py)."""
+"""ALM chunk-level binarized probability matching."""
 
 from __future__ import annotations
 
@@ -107,11 +107,10 @@ def _finish(
     return (_binary_ce(t_full, s_full, temp, eps) * numerator).mean() / (numerator.mean() + eps)
 
 
-@CRITERIONS.register("alm", source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/ALM.py:133-289")
+@CRITERIONS.register("alm")
 class ALM(Criterion):
     """BCE of binarized student/teacher chunk log probabilities, optionally merging and appending spaces.
 
-    Source: IMPACT/code/criterions/ALM.py:133-289. legacy_scale reproduces the original
     erroneous token-denominator division; the default treats ALM as a micro-batch mean.
     """
 

@@ -1,7 +1,6 @@
 """Pairwise/Probabilistic Preference Distillation (PPD).
 
 Exact ranking-distribution JSD.
-Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:83-130
 """
 
 from __future__ import annotations
@@ -69,14 +68,12 @@ def ppd_loss(
 
 @CRITERIONS.register(
     "ppd",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:83",
 )
 class PPD(Criterion):
     """Probabilistic preference distillation using exact ranking-distribution JSD.
 
     Chosen response is index 0, rejected is index 1.
     Formula: 0.5 * (KL(P_S || M) + KL(P_T || M)) where P is PL distribution over permutations.
-    Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:83-130
     """
 
     needs_teacher: ClassVar[bool] = False

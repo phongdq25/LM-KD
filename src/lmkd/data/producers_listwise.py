@@ -20,11 +20,10 @@ def _zero_like(value: Any, *, key: str) -> Any:
     return 0
 
 
-@PRODUCERS.register("listwise", source="integrations/preference_distillation.py:307-363")
+@PRODUCERS.register("listwise")
 class ListwiseProducer(DatasetProducer):
     """Flatten each prompt's N responses and preserve whole groups across micro-batches.
 
-    Source: human_alignment/integrations/preference_distillation.py:307-363.
     """
 
     provides = (

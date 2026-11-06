@@ -1,6 +1,6 @@
 <div align="center">
 
-# LM-KD   
+# LM-KD
 
 **A unified, modular toolkit for Language Model Knowledge Distillation**
 
@@ -260,7 +260,8 @@ rt.save("final_checkpoint")
 | `lmkd try <criterion>` | Dry-run a loss on synthetic tensors |
 | `lmkd list [registry]` | List registered plugins and components |
 | `lmkd pipeline -c <recipe>` | Offline pipelines (e.g. teacher logit caching) |
-| `lmkd new <kind> <name>` | Scaffold a new criterion, transform, stage, etc. |
+| `lmkd init <name>` | Initialize a complete baseline/method template directory (`dev/` or `src/baselines/`) |
+| `lmkd new <kind> <name>` | Scaffold a single plugin, test, and recipe |
 
 ## Recipes & Configuration
 

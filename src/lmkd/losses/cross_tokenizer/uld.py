@@ -1,6 +1,5 @@
 """Universal Logit Distillation (ULD) criterion.
 
-Source: white-box-distillation/cross-tokenizer/IMPACT/code/criterions/ULD.py:61-113.
 """
 
 from __future__ import annotations
@@ -108,7 +107,7 @@ def _collect_uld_pairs(
     return s_t, t_t, dropped
 
 
-@CRITERIONS.register("uld", source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/ULD.py:61-113")
+@CRITERIONS.register("uld")
 class ULD(Criterion):
     """Universal logit distillation (ULD).
 
@@ -116,7 +115,6 @@ class ULD(Criterion):
         loss = sum_b sum_k |sort_desc(softmax(z_S[b, plen_S + k] / T)) - sort_desc(softmax(z_T[b, plen_T + k] / T))|_1
         where k in [0, min(R_S, R_T)) over valid (non-masked) response token pairs.
 
-    Original: IMPACT criterions/ULD.py:61-113.
     """
 
     needs_teacher: ClassVar[bool] = True

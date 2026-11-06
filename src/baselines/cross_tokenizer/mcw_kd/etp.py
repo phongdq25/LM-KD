@@ -39,7 +39,7 @@ class ETP(nn.Module):
 
 
 class DualPotentialNetwork(nn.Module):
-    """Context-aware potential φ from IMPACT ETP_Dual.py:8-53."""
+    """Context-aware potential network φ for transport cost estimation."""
 
     def __init__(self, input_dim: int, hidden_dim: int = 256, output_dim: int = 1, use_context: bool = True) -> None:
         super().__init__()

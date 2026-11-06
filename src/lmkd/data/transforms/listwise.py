@@ -172,11 +172,10 @@ def _tokenize_response(
     return kept_prompt + response_ids, len(kept_prompt)
 
 
-@TRANSFORMS.register("tokenize_listwise", source="integrations/preference_distillation.py:196-285")
+@TRANSFORMS.register("tokenize_listwise")
 class TokenizeListwise(Transform):
     """Create one group of target-aligned student rows per preference prompt.
 
-    Source: human_alignment/integrations/preference_distillation.py:196-285.
     """
 
     provides = ("group.members",)

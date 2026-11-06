@@ -34,7 +34,6 @@ _MCQ_PATTERNS = [
 def normalize_answer(s: str) -> str:
     """Lower text and remove punctuation, articles, and extra whitespace.
 
-    Source: white-box-distillation/same-tokenizer/rouge_metric.py:12-26 and Squad v1.1.
     """
 
     def lower(text: str) -> str:
@@ -73,7 +72,6 @@ def rouge_metrics(
 ) -> dict[str, float]:
     """Pure function: ROUGE-L and exact match (x100, 4 decimal places).
 
-    Source: white-box-distillation/same-tokenizer/rouge_metric.py:46-66.
     """
     try:
         from rouge_score import rouge_scorer
@@ -106,7 +104,7 @@ def rouge_metrics(
     return {"exact_match": em_score, "rougeL": rouge_score_val}
 
 
-@GRADERS.register("exact_match_norm", source="white-box-distillation/same-tokenizer/rouge_metric.py:28-29")
+@GRADERS.register("exact_match_norm")
 class ExactMatchNormGrader(Grader):
     """1.0 if normalized prediction equals normalized reference."""
 
@@ -117,7 +115,7 @@ class ExactMatchNormGrader(Grader):
         return float(normalize_answer(str(prediction)) == normalize_answer(str(reference)))
 
 
-@GRADERS.register("rouge_l", source="white-box-distillation/same-tokenizer/rouge_metric.py:32-35", extras=("eval-gen",))
+@GRADERS.register("rouge_l", extras=("eval-gen",))
 class RougeLGrader(Grader):
     """ROUGE-L F1 score in [0, 1] using stemmed rouge-score."""
 
@@ -143,7 +141,6 @@ class RougeLGrader(Grader):
 def extract_boxed(text: str) -> str | None:
     """Extract content of the last \\boxed{...}, properly matching nested braces.
 
-    Source: Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/graders/answer_scoring.py:17-31.
     """
     matches = list(_BOXED.finditer(text))
     if not matches:
@@ -163,7 +160,6 @@ def extract_boxed(text: str) -> str | None:
 def normalize_math(answer: str) -> str:
     """Lowercase and strip LaTeX formatting noise that never changes mathematical meaning.
 
-    Source: Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/graders/answer_scoring.py:34-42.
     """
     answer = answer.strip().rstrip(".").replace(" ", "")
     answer = re.sub(r"\\(?:left|right|text|mathrm|displaystyle)", "", answer)
@@ -177,7 +173,6 @@ def normalize_math(answer: str) -> str:
 def math_answers_equal(predicted: str | None, gold: str) -> bool:
     """Symbolic comparison via math-verify when available, normalized-string fallback otherwise.
 
-    Source: Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/graders/answer_scoring.py:45-60.
     """
     if predicted is None:
         return False
@@ -198,7 +193,6 @@ def math_answers_equal(predicted: str | None, gold: str) -> bool:
 def extract_choice(text: str) -> str | None:
     """Extract first multiple-choice option (A-D), searching tail first.
 
-    Source: Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/graders/answer_scoring.py:63-70.
     """
     tail = text[-500:] if len(text) > 500 else text
     for pattern in _MCQ_PATTERNS:
@@ -209,7 +203,7 @@ def extract_choice(text: str) -> str | None:
 
 
 @GRADERS.register(
-    "boxed_builtin", source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/graders/answer_scoring.py:17-80"
+    "boxed_builtin"
 )
 class BoxedBuiltinGrader(Grader):
     """Answer extraction and equivalence checking with brace matching and math normalization."""
@@ -253,7 +247,6 @@ def math_ceil(x: float) -> int:
 
 @GRADERS.register(
     "math_verify",
-    source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/graders/palign.py:17-44,68-73",
     extras=("eval-math",),
 )
 class MathVerifyGrader(Grader):
@@ -305,7 +298,7 @@ class MathVerifyGrader(Grader):
         return float(self.grade_many([str(prediction)], reference)[0])
 
 
-@GRADERS.register("oat", source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/graders/oat.py")
+@GRADERS.register("oat")
 class OatGrader(Grader):
     """Math answer grader ported from Garena Online / OAT math grader."""
 
@@ -325,7 +318,7 @@ class OatGrader(Grader):
             return 0.0
 
 
-@GRADERS.register("palign", source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/graders/palign.py:75")
+@GRADERS.register("palign")
 class PAlignGrader(Grader):
     """P-ALIGN math grader: accepts prediction if either math_verify OR oat accepts it."""
 
@@ -353,7 +346,7 @@ class PAlignGrader(Grader):
 
 
 @GRADERS.register(
-    "mcq", source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/graders/answer_scoring.py:63-72"
+    "mcq"
 )
 class MCQGrader(Grader):
     """Multiple choice answer grader: extracts option letter (A-D) and checks equality."""

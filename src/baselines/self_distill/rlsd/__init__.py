@@ -8,8 +8,6 @@ Method overview:
 - Optimizes policy via clipped surrogate objective with global token count normalization.
 
 References:
-- Paper: Reinforcement Learning Self-Distillation (2024)
-- Source: Self-Distill/RLSD-main (verl/workers/actor/dp_opsd_actor.py & opsd_trainer.py)
 """
 
 from __future__ import annotations

@@ -1,7 +1,6 @@
 """Preference-Based Self-Distillation (PBSD).
 
 Teacher and student rollout preference distillation.
-Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:391-422
 """
 
 from __future__ import annotations
@@ -46,14 +45,12 @@ def pbsd_loss(
 
 @CRITERIONS.register(
     "pbsd",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:391",
 )
 class PBSD(Criterion):
     """Preference-Based Self-Distillation (PBSD) on teacher and student rollouts.
 
     Teacher rollout is index 0, student rollout is index 1.
     Formula: delta = (T(y_t) - S(y_t)) - (T(y_s) - S(y_s)); loss = -log sigmoid(-beta * delta).
-    Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:391-422
     """
 
     needs_teacher: ClassVar[bool] = True

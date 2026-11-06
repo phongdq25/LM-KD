@@ -13,6 +13,7 @@ from pydantic import Field, field_validator
 from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import CRITERIONS
 from lmkd.losses.base import Criterion, LossContext, LossOutput, LossTerm, ModelPairInfo
+from lmkd.losses.sft import WeightedNLL
 from lmkd.models.forward import FeatureRequest, SideRequest
 from lmkd.models.modules import ModuleRegistry
 
@@ -23,34 +24,6 @@ def _warn_once(key: str, message: str) -> None:
     if key not in _WARNED:
         _WARNED.add(key)
         warnings.warn(message, UserWarning, stacklevel=3)
-
-
-@CRITERIONS.register(
-    "weighted_nll", source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/training/losses.py:23"
-)
-class WeightedNLL(Criterion):
-    """sum_t w_t * mask_t * (-log p_t). Weights do NOT change the denominator Z (SGL Eq. 9)."""
-
-    requires = ("seq.token_weights",)
-
-    class Config(BaseConfig):
-        chunk_size: int = 1024
-        fused: str = "off"  # off | auto | on
-
-    def features(self) -> FeatureRequest:
-        return FeatureRequest(student=SideRequest(logits="view"))
-
-    def forward(self, ctx: LossContext) -> LossOutput:
-        if self.cfg.fused == "on":
-            raise ValueError("weighted_nll does not support fused execution (token weights are present)")
-        if self.cfg.fused == "auto":
-            _warn_once("weighted_nll_fallback", "weighted_nll fused fallback: token weights are present")
-
-        labels = ctx.batch["student.labels"]
-        mask = ctx.supervised_mask()
-        w = ctx.batch["seq.token_weights"]
-        logp = ctx.student_logits().target_logp(labels, chunk_size=self.cfg.chunk_size)
-        return LossOutput(terms={"wnll": LossTerm(-(logp * mask * w).sum(), "token_sum")})
 
 
 class TransitionPredictor(nn.Module):
@@ -135,7 +108,6 @@ def transition_loss_one(
 
 @CRITERIONS.register(
     "per_source_objective",
-    source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/training/losses.py:23-88; train.py:59-88",
 )
 class PerSourceObjective(Criterion):
     """sum_t coef_t * nll_t * mask_t ; coef = w_t * (sg(p_t) if obj(source_t)=='dft' else 1)."""
@@ -207,7 +179,6 @@ class PerSourceObjective(Criterion):
 
 @CRITERIONS.register(
     "transition_loss",
-    source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/training/transition_loss.py:21-140; transition_trainer.py:94-202",
 )
 class TransitionLoss(Criterion):
     """L_trans = mean_P(1 - cos(normalize(f(h[step_end[i]])), normalize(z_tilde[i+1])))."""

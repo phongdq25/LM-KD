@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional
 
-from tokenkit.constants import BYTES_TO_CHARS, CHARS_TO_BYTES
+from tokenkit.constants import BYTES_TO_CHARS
 
 BYTE_FALLBACK_MAP = {f"<0x{num:02X}>": num for num in range(256)}
 INV_BYTE_FALLBACK_MAP = {v: k for k, v in BYTE_FALLBACK_MAP.items()}

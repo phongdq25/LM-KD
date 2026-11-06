@@ -2,9 +2,6 @@
 
 Contains canonical method implementations ("phương pháp của từng cái") built upon
 the core RL/verl execution infrastructure in `src/lmkd`:
-- OPSD: On-Policy Self-Distillation (GJSD divergence, Tinker reverse-KL, ReasonFirst)
-- SDPO: Self-Distillation with Preference Optimization (Student top-k support, tail bucket, SDPOReprompt, IS clipping)
-- RLSD: Reinforcement Learning Self-Distillation (STGCA advantage modulation, scheduled lambda, privileged reference teacher)
 - LUFFY: Learning to Reason Under Off-Policy Guidance (Policy Shaping via Regularized IS, GRPOSplit, Prefix Weighting)
 """
 

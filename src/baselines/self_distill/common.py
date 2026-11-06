@@ -18,7 +18,7 @@ def masked_mean(value: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
 
 
 def add_tail(logp: torch.Tensor) -> torch.Tensor:
-    """Append SDPO residual probability bucket (core_algos.py:1112-1118).
+    """Append SDPO residual probability bucket.
 
     Guarantees proper simplex normalization over the top-k subset by allocating
     residual probability mass 1 - sum(P_k) to an explicit tail state.

@@ -9,7 +9,7 @@ from lmkd.losses.functional.rl import masked_mean, ppo_clip_per_token
 from lmkd.models.forward import FeatureRequest, SideRequest
 
 
-@CRITERIONS.register("ppo_clip", source="Self-Distill/RLSD-main/verl/workers/actor/dp_opsd_actor.py:426-579")
+@CRITERIONS.register("ppo_clip")
 class PPOClip(Criterion):
     """Clipped PG divided by global token count; matches TRL bnpo for one micro-batch."""
 

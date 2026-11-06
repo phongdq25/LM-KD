@@ -1,6 +1,5 @@
 """OPSD Teacher Input Builder (ReasonFirst).
 
-Source: Self-Distill/OPSD-main (opsd_trainer.py:1308-1362)
 Teacher writes an analysis of the reference solution first and uses it as context.
 """
 
@@ -20,7 +19,7 @@ from lmkd.teachers.input_builders import (
 )
 
 
-@TEACHER_INPUTS.register("reason_first", source="Self-Distill/OPSD-main/opsd_trainer.py:1308-1362")
+@TEACHER_INPUTS.register("reason_first")
 class ReasonFirst(TeacherInputBuilder):
     """Teacher writes an analysis of the reference solution first and uses it as context (OPSD reason_first)."""
 

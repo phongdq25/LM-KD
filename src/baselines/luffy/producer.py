@@ -1,7 +1,6 @@
 """LUFFY: Learning to Reason Under Off-Policy Guidance - Rollout Group Producer.
 
 Paper: LUFFY: Learning to Reason Under Off-Policy Guidance (NeurIPS 2025)
-Source: LUFFY/luffy/verl/verl/mix_src/mix_vllm_rollout.py:200-290 & mix_trainer.py:490-538
 """
 
 from __future__ import annotations
@@ -46,8 +45,8 @@ FIELDS.register(
 )
 
 
-@PRODUCERS.register("luffy_group", source="LUFFY/luffy/verl/verl/mix_src/mix_vllm_rollout.py:200-290", force=True)
-@PRODUCERS.register("luffy_rollout", source="LUFFY/luffy/verl/verl/mix_src/mix_vllm_rollout.py:200-290", force=True)
+@PRODUCERS.register("luffy_group", force=True)
+@PRODUCERS.register("luffy_rollout", force=True)
 class LUFFYGroupProducer(RolloutGroupProducer):
     """Produces mixed on-policy and off-policy rollout groups for LUFFY training.
 

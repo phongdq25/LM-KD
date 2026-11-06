@@ -24,7 +24,6 @@ def _process_chunk(args: tuple[list[dict], list[Any], DataContext]) -> list[dict
 
 @STAGES.register(
     "prepare_dataset",
-    source="lmkd/pipeline/stages/prepare.py",
 )
 class PrepareDataset(Stage):
     """Offline dataset preparation pipeline stage.

@@ -50,12 +50,12 @@ def _make_left_count_match_or_be_zero(string, symbol, count):
 
 def _get_increasing_offset_pairs(n: int):
     """Generate pairs of (start, end) offsets that sum to strictly increasing values.
-    
+
     For a string of length n, generates offset pairs where:
     - Each pair sums to a value from 0 to n
     - For each sum value, generates all valid (start, end) combinations
     - Pairs are ordered by sum, then by start index
-    
+
     Example for n=2:
     (0,0), (0,1), (1,0), (0,2), (1,1), (2,0), (1,2), (2,1)
     """
@@ -306,9 +306,9 @@ class ByteifyTokenizer:
         )
 
     def backend_tokenize_with_byte_fallback(self, pretoken: str, unsafe: bool | str = False) -> List[str]:
-       tokens = None
-       
-       for end_offset, start_offset in _get_increasing_offset_pairs(len(pretoken)):
+        tokens = None
+
+        for end_offset, start_offset in _get_increasing_offset_pairs(len(pretoken)):
             start_idx = start_offset
             end_idx = len(pretoken) - end_offset
 

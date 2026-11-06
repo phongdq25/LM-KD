@@ -2,7 +2,6 @@
 
 ``iter_student_weights``: stream ``(hf_name, tensor)`` for vLLM ``load_weights`` (full fine-tune, or LoRA
 merged on the fly). ``save_lora_adapter``: LoRA hot-load path (adapter written to disk, no tensors moved).
-Source: Self-Distill/OPSD-main/opsd_trainer.py:1175-1245.
 """
 
 from __future__ import annotations

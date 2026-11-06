@@ -1,6 +1,5 @@
 """Jasper (distillation of SOTA embedding models) baseline.
 
-Source: embedding-distill/jasper (1).ipynb:cells 8, 15, 17
 Paper: Jasper and Stella: distillation of SOTA embedding models
 """
 
@@ -92,13 +91,11 @@ def pair_inbatch_triplet_loss(
 
 @CRITERIONS.register(
     "jasper",
-    source="embedding-distill/jasper (1).ipynb:cells 8, 15, 17",
     paper="Jasper and Stella: distillation of SOTA embedding models",
 )
 class Jasper(Criterion):
     """Jasper embedding distillation combining Cosine Loss, In-batch Similarity MSE and Triplet Ranking Loss.
 
-    Source: embedding-distill/jasper (1).ipynb:cells 8, 15, 17
     Paper: Jasper and Stella: distillation of SOTA embedding models
     """
 

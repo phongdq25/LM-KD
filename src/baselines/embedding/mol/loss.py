@@ -1,6 +1,5 @@
 """MoL (Mixture of Layers in Cross-Tokenizer embedding model distillation) baseline.
 
-Source: embedding-distill/MoL.ipynb:cells 14, 15, 16
 Paper: MoL: Mixture of Layers in Cross-Tokenizer embedding model distillation (Knowledge-Based Systems 2026)
 """
 
@@ -22,7 +21,6 @@ from lmkd.models.modules import ModuleRegistry
 class LinearCKA(nn.Module):
     """Linear Centered Kernel Alignment between student and teacher representations.
 
-    Source: embedding-distill/MoL.ipynb:cell 14
     """
 
     def __init__(self, eps: float = 1e-8) -> None:
@@ -80,7 +78,6 @@ def align_teacher_to_student(
 ) -> torch.Tensor:
     """Align teacher layer hidden states to student sequence length via cross-attention.
 
-    Source: embedding-distill/MoL.ipynb:cell 14
 
     student_embedding:      [B, Ls, Ds]
     student_last_hidden:    [B, Ls, Ds]
@@ -138,7 +135,6 @@ def mol_kd_loss(
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     """Compute MoL (Mixture of Layers) distillation loss.
 
-    Source: embedding-distill/MoL.ipynb:cell 14
     Paper: MoL: Mixture of Layers in Cross-Tokenizer embedding model distillation
     """
     device_s = student_hidden_states[-1].device
@@ -238,13 +234,11 @@ def mol_kd_loss(
 
 @CRITERIONS.register(
     "mol",
-    source="embedding-distill/MoL.ipynb:cells 14, 15, 16",
     paper="MoL: Mixture of Layers in Cross-Tokenizer embedding model distillation",
 )
 class MoL(Criterion):
     """MoL: Mixture of Layers in Cross-Tokenizer embedding model distillation.
 
-    Source: embedding-distill/MoL.ipynb:cells 14, 15, 16
     Paper: MoL: Mixture of Layers in Cross-Tokenizer embedding model distillation (Knowledge-Based Systems 2026)
     """
 
@@ -327,7 +321,6 @@ class MoL(Criterion):
 
 @CRITERIONS.register(
     "mol_kd",
-    source="embedding-distill/MoL.ipynb:cells 14, 15, 16",
     paper="MoL: Mixture of Layers in Cross-Tokenizer embedding model distillation",
 )
 class MoLKD(MoL):

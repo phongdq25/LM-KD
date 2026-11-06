@@ -77,7 +77,7 @@ $$\mathcal{L}_{\text{P-ALIGN}}(\theta) = -\sum_{j=1}^{k^*} \log P_\theta(y_j^{\t
 - **Links:** [PMLR proceedings](https://proceedings.mlr.press/v306/fan26e.html)
 
 ### Idea Summary
-SGL-Spectral examines the gradient geometry of long reasoning chains via **Loss Subspace Attribution**. It shows that gradients corresponding to genuine, reusable deductive logic naturally align into a **low-rank consensus subspace**, whereas instance-specific noise, erratic backtracking, and superficial tokens occupy a turbulent residual subspace. 
+SGL-Spectral examines the gradient geometry of long reasoning chains via **Loss Subspace Attribution**. It shows that gradients corresponding to genuine, reusable deductive logic naturally align into a **low-rank consensus subspace**, whereas instance-specific noise, erratic backtracking, and superficial tokens occupy a turbulent residual subspace.
 
 Using **Singular Value Decomposition (SVD)** across sequence gradient vectors $G = [g_1, \dots, g_T] = U \Sigma V^\top$, SGL-Spectral projects step-level loss updates onto the dominant spectral consensus subspace, dynamically upweighting core deductive milestones while suppressing spectral noise.
 

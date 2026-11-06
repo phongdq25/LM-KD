@@ -15,7 +15,7 @@ from lmkd.losses.base import LossContext
 from lmkd.models.logits_view import LogitsView
 from lmkd.models.modules import ModuleRegistry
 
-SGL_ROOT = Path("/data/home/phongdq/projects/LM-KD/Long-CoT-Disitllation/SpectralGuidedLearning")
+SGL_ROOT = Path(__file__).resolve().parents[3] / "Long-CoT-Disitllation" / "SpectralGuidedLearning"
 SGL_SRC = SGL_ROOT / "src"
 
 pytestmark = [

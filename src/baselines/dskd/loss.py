@@ -30,19 +30,13 @@ from lmkd.models.logits_view import LogitsView, chunked_token_divergence
 from lmkd.models.modules import DSLProjector, ModuleRegistry
 
 
-@CRITERIONS.register(
-    "dskd", source="white-box-distillation/cross-tokenizer/DSKDv2-main/code/criterions/dual_space_kd.py"
-)
+@CRITERIONS.register("dskd")
 class DSKD(_DualSpaceBase):
     """Dual-space KD: t2s/s2t projectors, KD in both student and teacher vocab spaces (same tokenizer).
 
     Formula:
         t2s_logits = (h_t @ W_t2s) @ W_S_head^T, s2t_logits = (h_s @ W_s2t) @ W_T_head^T
         L = div(p_s, p_t2s) + div(p_s2t, p_t)
-
-    Differences from original:
-        - Target-aligned LogitsView representation avoiding [B,T,V] materialization.
-        - Fixed s2t overlap mismatch when vocabularies differ.
     """
 
     class Config(BaseConfig):
@@ -166,7 +160,7 @@ def _cma_embed_indices(
     return stu_index, tea_index / tea_index.std(), tea_tgt_emb / tea_tgt_emb.std()
 
 
-@CRITERIONS.register("dskd_cma", source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/DSKD.py:61-160")
+@CRITERIONS.register("dskd_cma")
 class DSKDCMA(_DualSpaceBase):
     """DSKD with cross-model attention (CMA) between student and teacher embedding spaces.
 
@@ -175,10 +169,6 @@ class DSKDCMA(_DualSpaceBase):
         align = q(stu_index) @ k(tea_index)^T / sqrt(2*D_t) + (1 - mask) * (-1e5)
         t2s_h = softmax(align) @ t2s(norm(h_t) + norm(tea_tgt))
         s2t_h = softmax(align^T) @ s2t(h_s)
-
-    Differences from original:
-        - Target-aligned LogitsView representation avoiding [B,T,V] materialization.
-        - Scaled by global token norms instead of local student count.
     """
 
     class Config(BaseConfig):

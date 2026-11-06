@@ -36,7 +36,6 @@ PALIGN_INSTRUCTION = "Please reason step by step, and put your final answer with
 def assemble_palign(prefix: str, continuation: str) -> str:
     """Join the teacher prefix and verified student continuation exactly as P-ALIGN.
 
-    Source: SGL/src/sgl/palign/build.py:22-23.
     """
     return f"<Begin_of_Prefix>{prefix}<End_of_Prefix>\n{continuation.strip()}"
 
@@ -45,7 +44,6 @@ def assemble_palign(prefix: str, continuation: str) -> str:
 class PrefixSearch:
     """Per-question binary search over sentences for the shortest sufficient prefix.
 
-    Source: SGL/src/sgl/palign/truncate.py:53-91.
     """
 
     question: str
@@ -91,7 +89,6 @@ def run_searches(
 ) -> None:
     """Advance open searches in lockstep, issuing one batch per round when it fits.
 
-    Source: SGL/src/sgl/palign/truncate.py:94-107.
     """
     for _ in range(max_rounds):
         active = [s for s in searches if not s.done]

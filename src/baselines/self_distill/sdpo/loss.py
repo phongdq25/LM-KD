@@ -1,7 +1,6 @@
 """SDPO: Self-Distillation with Preference Optimization - Distillation Loss Method.
 
 Paper: Self-Distillation with Preference Optimization (2024)
-Source: Self-Distill/SDPO-main (verl/trainer/ppo/core_algos.py:1085-1190)
 
 Key Method Characteristics:
 1. Distillation on student's top-k support with an explicit residual probability tail bucket (1 - sum P_k).
@@ -62,7 +61,7 @@ def compute_self_distillation_loss(
     self_distillation_mask: torch.Tensor | None = None,
     rollout_is_weights: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-    """Verbatim SDPO loss calculation matching verl/trainer/ppo/core_algos.py:1085-1190."""
+    """SDPO loss calculation over student and teacher log-probabilities."""
     loss_mask = response_mask
     if self_distillation_mask is not None:
         loss_mask = loss_mask * self_distillation_mask.unsqueeze(1)
@@ -108,8 +107,8 @@ def compute_self_distillation_loss(
     return total_loss, metrics
 
 
-@CRITERIONS.register("sdpo", source="Self-Distill/SDPO-main/verl/trainer/ppo/core_algos.py:1085-1190", force=True)
-@CRITERIONS.register("sdpo_distill", source="Self-Distill/SDPO-main/verl/trainer/ppo/core_algos.py:1085-1190", force=True)
+@CRITERIONS.register("sdpo", force=True)
+@CRITERIONS.register("sdpo_distill", force=True)
 class SDPOLoss(Criterion):
     """SDPO self-distillation criterion with student top-k support, tail bucket, and IS correction."""
 

@@ -13,7 +13,6 @@ def analytic_gradients_and_entropies(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute Wᵀ(softmax(Wh)-onehot(y)) and predictive entropy in token chunks.
 
-    Source: SGL/src/sgl/signals/gradients.py:44-74.
     """
     if chunk < 1:
         raise ValueError("chunk must be positive")
@@ -33,7 +32,6 @@ def analytic_gradients_and_entropies(
 def effective_rank(singular_values: torch.Tensor, energy_cutoff: float = 0.95) -> int:
     """Return the smallest rank containing the requested squared singular-value energy.
 
-    Source: SGL/src/sgl/signals/spectral.py:19-22.
     """
     if not 0 < energy_cutoff <= 1:
         raise ValueError("energy_cutoff must be in (0, 1]")
@@ -47,6 +45,5 @@ def effective_rank(singular_values: torch.Tensor, energy_cutoff: float = 0.95) -
 def step_strengths(values: torch.Tensor, spans: list[tuple[int, int]]) -> list[float]:
     """Average token values within each response-relative step span.
 
-    Source: SGL/src/sgl/signals/spectral.py:30-44.
     """
     return [float(values[a:b].float().mean()) if b > a else 0.0 for a, b in spans]

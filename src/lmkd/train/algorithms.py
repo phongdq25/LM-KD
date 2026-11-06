@@ -138,7 +138,7 @@ class ComputeLoss(Standard):
         super().setup(rt)
 
 
-@ALGORITHMS.register("rl", source="Self-Distill/RLSD-main/verl/trainer/opsd_trainer.py:1911-1980")
+@ALGORITHMS.register("rl")
 class RL(Standard):
     """Freeze old policy log-probabilities before updates, then compute group and teacher-guided advantages."""
 

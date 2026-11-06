@@ -69,6 +69,9 @@ loss:
   terms:
     - criterion: ppo_clip
       alias: opsd
+      params:
+        clip_low: 0.2
+        clip_high: 0.2
 
 data:
   train:

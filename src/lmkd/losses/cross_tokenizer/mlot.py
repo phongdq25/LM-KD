@@ -1,6 +1,5 @@
 """Multi-Level Optimal Transport (MultiLevelOT) criterion.
 
-Source: white-box-distillation/cross-tokenizer/IMPACT/code/criterions/MultiLevelOT.py:141-204.
 """
 
 from __future__ import annotations
@@ -19,7 +18,7 @@ from lmkd.teachers.signals import TeacherSignalSpec
 
 
 def mlot_normalize(x: torch.Tensor) -> torch.Tensor:
-    """Normalize logits by std without subtracting mean (IMPACT MultiLevelOT.py:7-11)."""
+    """Normalize logits by standard deviation without subtracting mean."""
     return x / (x.std(dim=-1, keepdim=True) + 1e-4)
 
 
@@ -31,7 +30,7 @@ def mlot_sinkhorn(
     ot_scale: float = 0.001,
     sinkhorn_temp: float = 2.0,
 ) -> torch.Tensor:
-    """Sinkhorn distance between sample sequence distributions (MultiLevelOT.py:25-50)."""
+    """Sinkhorn distance between sample sequence distributions."""
     p_s = torch.softmax(ps_b / sinkhorn_temp, dim=-1)
     p_t = torch.softmax(pt_b / sinkhorn_temp, dim=-1)
     W = torch.cdist(p_s, p_t, p=1)
@@ -44,7 +43,7 @@ def mlot_sinkhorn(
 
 
 def mlot_kl_wo(ps: torch.Tensor, pt: torch.Tensor) -> torch.Tensor:
-    """KL_wo from MultiLevelOT.py:19-23 applying log_softmax to already softmaxed probs."""
+    """KL divergence applying log_softmax to already softmaxed probabilities."""
     p_s = F.log_softmax(ps, dim=-1)
     p_t = F.softmax(pt, dim=-1)
     return -torch.sum(p_t * p_s, dim=-1).mean()
@@ -87,7 +86,6 @@ def _compute_perm_sums(
 
 @CRITERIONS.register(
     "multilevel_ot",
-    source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/MultiLevelOT.py:141-204",
 )
 class MultiLevelOT(Criterion):
     """Multi-level Optimal Transport (MLOT).
@@ -97,11 +95,6 @@ class MultiLevelOT(Criterion):
       - KL_wo: cross-entropy like term on probabilities
       - L1 distance on sorted probabilities
 
-    Note on differences from original:
-      Original ran Sinkhorn on full rolled+padded sequences, mixing prompt and padding tokens.
-      This implementation only uses valid response tokens.
-
-    Original: IMPACT criterions/MultiLevelOT.py:141-204.
     """
 
     needs_teacher: ClassVar[bool] = True

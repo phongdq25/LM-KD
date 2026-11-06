@@ -84,7 +84,7 @@ def _forward_view(model: Any, rows: list[dict], pad_id: int) -> tuple[LogitsView
 def compress_target_logits(
     view: LogitsView, labels: torch.Tensor, k: int
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Top-k probabilities and residual at targets; source: distillation_losses.py:20-42."""
+    """Top-k probabilities and residual at targets."""
     if k < 1:
         raise ValueError("top-k must be positive")
     shape = (*labels.shape, k)
@@ -110,7 +110,7 @@ def sparse_advantages(
     labels: torch.Tensor,
     max_k: int,
 ) -> tuple[torch.Tensor, torch.Tensor, int]:
-    """Sparse log(p_teacher/p_ref) over top-k union; source: _preference_math.py:9-40."""
+    """Sparse log(p_teacher/p_ref) over top-k union."""
     ids = torch.full((*labels.shape, max_k), -1, dtype=torch.long, device=labels.device)
     values = torch.zeros((*labels.shape, max_k), dtype=torch.float32, device=labels.device)
     truncated = 0
@@ -214,11 +214,10 @@ def _cache_batch(
     return truncated
 
 
-@STAGES.register("teacher_cache", source="integrations/distillation_data.py:77-99,587-631")
+@STAGES.register("teacher_cache")
 class TeacherCache(Stage):
     """Cache batched teacher top-k, sampled log-probs, or sparse ADPA advantages.
 
-    Source: human_alignment/integrations/distillation_data.py:77-99,587-631.
     """
 
     inputs: ClassVar[dict[str, str]] = {"data": "dataset"}
@@ -346,7 +345,7 @@ def _last_logits(
 
 
 def pairwise_scores(model: Any, tokenizer: Any, prompt: str, responses: list[str], batch_size: int = 8) -> list[float]:
-    """Order-balanced A/B scores; source: distillation_data.py:125-185."""
+    """Order-balanced A/B scores."""
     if len(responses) < 2:
         raise ValueError("pairwise scoring needs at least two responses")
     option_ids = [tokenizer(x, add_special_tokens=False)["input_ids"][-1] for x in (" A", " B")]
@@ -373,7 +372,7 @@ def pairwise_scores(model: Any, tokenizer: Any, prompt: str, responses: list[str
 
 
 def pad_mcq_template(tokenizer: Any) -> Template:
-    """Render the verbatim PAD MCQ template; source: distillation_data.py:188-224."""
+    """Render the PAD MCQ template."""
     try:
         text = tokenizer.apply_chat_template(
             [{"role": "system", "content": _PAD_MCQ_SYSTEM}, {"role": "user", "content": _PAD_MCQ_USER}],
@@ -397,7 +396,7 @@ def _pad_truncate(text: str, tokenizer: Any) -> str:
 def pad_mcq_scores(
     model: Any, tokenizer: Any, instruction: str, responses: list[str], batch_size: int = 8
 ) -> list[float]:
-    """PAD top-20 option probabilities; source: distillation_data.py:188-278."""
+    """PAD top-20 option probabilities."""
     if len(responses) < 2:
         raise ValueError("PAD MCQ scoring needs at least two responses")
     template = pad_mcq_template(tokenizer)
@@ -549,11 +548,10 @@ def score_record(
     return {**row, **result}
 
 
-@STAGES.register("score", source="integrations/distillation_data.py:102-278")
+@STAGES.register("score")
 class Score(Stage):
     """Score preference candidates by sequence, pairwise, PAD MCQ, or reward model.
 
-    Source: human_alignment/integrations/distillation_data.py:102-278 and reward_model.py:27-138.
     """
 
     supports_shards = True

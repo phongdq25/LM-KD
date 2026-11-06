@@ -193,7 +193,7 @@ class TokenizeSFT(Transform):
         return keys
 
 
-@TRANSFORMS.register("tokenize_text", source="embedding-distill/TALAS-M-main/dataset.py:24-49")
+@TRANSFORMS.register("tokenize_text")
 class TokenizeText(Transform):
     """{text} -> student.(input_ids, attention_mask) without labels (encoders / embedding KD).
     Truncates to data.max_length (embedding inputs are truncated, not dropped)."""

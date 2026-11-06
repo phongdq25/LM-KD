@@ -1,7 +1,6 @@
 """Direct Preference Distillation Optimization (DP3O).
 
 Blends hard DPO and soft DPO using teacher reward differences.
-Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/preference/losses.py:109-124
 """
 
 from __future__ import annotations
@@ -41,14 +40,12 @@ def dp3o_loss(
 
 @CRITERIONS.register(
     "dp3o",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/preference/losses.py:109",
 )
 class DP3O(Criterion):
     """Direct Preference Distillation Optimization (DP3O) blending hard and soft DPO.
 
     Chosen response is index 0, rejected is index 1.
     Formula: alpha * DPO_hard + (1 - alpha) * soft_label_DPO(sigmoid(reward_diff)).
-    Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/preference/losses.py:109-124
     """
 
     needs_teacher: ClassVar[bool] = True

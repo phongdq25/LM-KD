@@ -1,6 +1,5 @@
 """DistillCSE (Distilled Contrastive Learning for Sentence Embeddings) baseline.
 
-Source: embedding-distill/distillcse (2).ipynb:cells 18-20
 Paper: DistillCSE: Distilled Contrastive Learning for Sentence Embeddings (EMNLP 2023)
 """
 
@@ -65,13 +64,11 @@ def distillcse_kd_loss(
 
 @CRITERIONS.register(
     "distillcse",
-    source="embedding-distill/distillcse (2).ipynb:cell 18",
     paper="DistillCSE: Distilled Contrastive Learning for Sentence Embeddings",
 )
 class DistillCSE(Criterion):
     """DistillCSE: Cross-view contrastive distillation with masked diagonal KL divergence.
 
-    Source: embedding-distill/distillcse (2).ipynb:cells 18, 20
     Paper: DistillCSE: Distilled Contrastive Learning for Sentence Embeddings (EMNLP 2023)
     """
 
@@ -131,7 +128,6 @@ class DistillCSE(Criterion):
 
 @CRITERIONS.register(
     "distillcse_kd",
-    source="embedding-distill/distillcse (2).ipynb:cell 18",
     paper="DistillCSE: Distilled Contrastive Learning for Sentence Embeddings",
 )
 class DistillCSEKD(DistillCSE):

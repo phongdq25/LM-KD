@@ -13,15 +13,15 @@ Base class for all distillation loss implementations (`torch.nn.Module`).
 ```python
 class Criterion(nn.Module):
     """The loss contract.
-    
+
     A criterion computes unnormalized loss numerators and declares required features.
     It never shifts logits and never divides by batch size.
     """
-    
+
     def features(self) -> FeatureRequest:
         """Declares what tensors (logits, hidden layers, attentions) the engine must extract."""
         return FeatureRequest()
-        
+
     def forward(self, ctx: LossContext) -> LossOutput:
         """Computes loss terms and diagnostic metrics for one micro-batch."""
         raise NotImplementedError
@@ -124,7 +124,7 @@ class LogitsView:
         """Returns top-k values and token indices along vocabulary dimension."""
         ...
 
-    def scaled(self, temperature: float) -> LogitsView:
+    def with_temperature(self, t: float) -> LogitsView:
         """Returns a new LogitsView scaled by temperature."""
         ...
 ```

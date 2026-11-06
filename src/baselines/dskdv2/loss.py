@@ -28,9 +28,7 @@ from lmkd.models.logits_view import LogitsView, chunked_token_divergence
 from lmkd.models.modules import ModuleRegistry
 
 
-@CRITERIONS.register(
-    "dskdv2", source="white-box-distillation/cross-tokenizer/DSKDv2-main/code/criterions/dual_space_kd_v2.py:57-130"
-)
+@CRITERIONS.register("dskdv2")
 class DSKDv2(_DualSpaceBase):
     """DSKDv2: teacher argmax as label for t2s CE, agreement filtering, analytic s2t = W_S @ pinv(W_T).
 
@@ -40,11 +38,6 @@ class DSKDv2(_DualSpaceBase):
         t2s_kd = (kd_tok * agree).sum() / agree.sum() if agreement <= thresh else (kd_tok * pad_mask).sum()
         s2t_hidden = h_s @ (W_S @ pinv(part_T))
         s2t_kd = sum(div(p_s2t, p_t) * t_pad_mask)
-
-    Differences from original:
-        - Fixed s2t overlap mismatch when vocabularies differ.
-        - Dropped on-policy buggy indexing (line 179).
-        - Agreement denominator uses local supervised count.
     """
 
     class Config(BaseConfig):
@@ -185,10 +178,7 @@ def _eta_align_hiddens(
     return t_preds_as_label, t2s_h_align, s2t_h_align, ok, n_align
 
 
-@CRITERIONS.register(
-    "dskdv2_eta",
-    source="white-box-distillation/cross-tokenizer/DSKDv2-main/code/criterions/dual_space_kd_v2_with_exact_token_alignment.py:96-238",
-)
+@CRITERIONS.register("dskdv2_eta")
 class DSKDv2ETA(_DualSpaceBase):
     """DSKDv2 with exact token alignment (ETA) across different tokenizers.
 
@@ -197,11 +187,6 @@ class DSKDv2ETA(_DualSpaceBase):
         t_preds_as_label = mapped teacher preds where ETA pair is valid and vocabulary overlap exists.
         t2s_h_align = gathered tea_v at paired indices.
         s2t_h_align = scattered stu_v at paired indices.
-
-    Differences from original:
-        - Vectorized scatter (index_put) without Python loop.
-        - Configurable normalization: 'local' (matching original) or 'global' (standard token_sum).
-        - Fixed s2t overlap mismatch when vocabularies differ.
     """
 
     requires: ClassVar[tuple[str, ...]] = ("align.eta_t_for_s", "align.eta_s_for_t")

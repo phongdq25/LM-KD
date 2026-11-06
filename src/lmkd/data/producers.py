@@ -321,7 +321,7 @@ def sampling_threshold(thr: float, schedule: str, step: int, total: int) -> floa
 
 
 def decide(r: float, thr: float, samp_thr: float, buf_len: int, capacity: int) -> str:
-    """Decide next batch source: 'generate' | 'replay' | 'data' (DistiLLM finetune.py:310-322)."""
+    """Decide next batch source: 'generate' | 'replay' | 'data'."""
     if r < samp_thr or (r < thr and buf_len < capacity):
         return "generate"
     if r < thr:
@@ -372,7 +372,7 @@ class MixedProducer(DatasetProducer):
             self.rng.setstate(state["rng"])
 
 
-@PRODUCERS.register("adaptive_sgo", source="white-box-distillation/same-tokenizer/finetune.py:266-322,413-419")
+@PRODUCERS.register("adaptive_sgo")
 class AdaptiveSGOProducer(DatasetProducer):
     """DistiLLM adaptive student-generated output with replay buffer.
 
@@ -382,13 +382,6 @@ class AdaptiveSGOProducer(DatasetProducer):
         if r < samp_threshold or (r < thr and len(buffer) < capacity): generate on-policy, add to buffer
         elif r < thr: replay from buffer
         else: use dataset batch
-
-    Deviations from original white-box-distillation code:
-      1. prev evaluation: original evaluates dev set once before training; here prev is initialized
-         on the first on_eval call if not set initially.
-      2. global_step offset: original had off-by-one in schedule step; here state.step (0-indexed completed steps) is used.
-      3. label alignment: target-aligned convention avoids 1-token shift bug of original code.
-      4. pad filtering: safe handling of pad==eos via rollout lengths rather than token value filtering.
     """
 
     class Config(DatasetProducer.Config):
@@ -563,7 +556,7 @@ class ReplayProducer(BatchProducer):
             self.buffer.load_state_dict(state["buffer"])
 
 
-@PRODUCERS.register("rollout_group", source="Self-Distill/SDPO-main/verl/trainer/ppo/ray_trainer.py")
+@PRODUCERS.register("rollout_group")
 class RolloutGroupProducer(DatasetProducer):
     """Generate contiguous groups of n responses, then verify the complete rollout batch once."""
 

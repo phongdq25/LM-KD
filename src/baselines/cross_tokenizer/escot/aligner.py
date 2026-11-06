@@ -16,7 +16,7 @@ reg_field("align.span_pairs", "ragged", torch.long, 0, None, "[P,2] (student tar
 def _span_align(s_spans: list[tuple[int, int]], t_spans: list[tuple[int, int]]) -> list[list[int]]:
     """Algorithm 1 of paper 15849 - linear two-pointer sweep for character-span overlap.
 
-    Verbatim port of IMPACT/code/criterions/E_SCOT.py:283-302. Entry ``i`` lists the teacher indices whose span
+    Entry ``i`` lists the teacher indices whose span
     ``[t_start, t_end)`` intersects student span ``i``."""
     neighborhoods: list[list[int]] = [[] for _ in range(len(s_spans))]
     if not t_spans:
@@ -35,13 +35,13 @@ def _span_align(s_spans: list[tuple[int, int]], t_spans: list[tuple[int, int]]) 
 
 
 @ALIGNERS.register(
-    "char_span", source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/E_SCOT.py:176-195,283-302"
+    "char_span"
 )
 class CharSpan(Aligner):
     """Pairs of (student target, teacher target) whose character spans overlap (E-SCOT neighbourhoods).
 
     ``span_of='context'`` (E-SCOT): the span of target ``t`` is the offset of the CONTEXT token ``t-1`` (the token the
-    distribution is conditioned on, ``E_SCOT.py:192``); ``'target'`` uses ``offsets[t]``. Targets are
+    distribution is conditioned on); ``'target'`` uses ``offsets[t]``. Targets are
     ``t in [prompt_len, len)``. Output ``align.span_pairs`` ``[P,2]`` = (t_s, t_t), target positions.
     """
 

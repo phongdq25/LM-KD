@@ -17,7 +17,7 @@ FIELDS.register(FieldSpec("student.offsets", "token_k", torch.long, -1, "student
 FIELDS.register(FieldSpec("teacher.offsets", "token_k", torch.long, -1, "teacher", "char [start,end) per token"))
 
 
-@TRANSFORMS.register("token_offsets", source="IMPACT/code/sra_span_utils.py:283-314")
+@TRANSFORMS.register("token_offsets")
 class TokenOffsets(Transform):
     """Per-token char offsets ``[start, end)`` of the exact ``input_ids`` used for training (student, optionally
     teacher).

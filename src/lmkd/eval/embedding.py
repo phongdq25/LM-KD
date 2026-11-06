@@ -4,7 +4,6 @@ Pure functions ``sts_spearman / linear_probe / pair_classification(model, tokeni
 work on any model (scripts, notebooks); the ``embedding_*`` Evaluator plugins only read records
 from their Config, call them on ``rt.student_model`` and prefix the metric keys.
 
-Source: embedding-distill/TALAS-M-main/eval.py
 Paper: TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings
 """
 
@@ -101,7 +100,7 @@ def sts_spearman(
     score_field: str = "score",
     **encode_kw: Any,
 ) -> dict[str, float]:
-    """STS: Spearman between gold scores and ``(cos + 1) * 2.5``. Source: TALAS-M eval.py:18-69."""
+    """STS: Spearman between gold scores and ``(cos + 1) * 2.5``."""
     from scipy.stats import spearmanr
 
     if not records:
@@ -128,7 +127,7 @@ def linear_probe(
     max_iter: int = 200,
     **encode_kw: Any,
 ) -> dict[str, float]:
-    """Logistic regression on frozen embeddings -> macro-F1 / accuracy. Source: TALAS-M eval.py:71-137."""
+    """Logistic regression on frozen embeddings -> macro-F1 / accuracy."""
     import numpy as np
     from sklearn.linear_model import LogisticRegression
     from sklearn.metrics import accuracy_score, f1_score
@@ -165,7 +164,7 @@ def pair_classification(
     **encode_kw: Any,
 ) -> dict[str, float]:
     """Pair classification: AP of ``(cos + 1) / 2`` + best-threshold accuracy / macro-F1.
-    Source: TALAS-M eval.py:139-206."""
+    """
     import numpy as np
     from sklearn.metrics import accuracy_score, average_precision_score, f1_score
 
@@ -198,7 +197,6 @@ def _encode_kw(rt: Any, cfg: Any) -> dict[str, Any]:
 
 @EVALUATORS.register(
     "embedding_sts",
-    source="embedding-distill/TALAS-M-main/eval.py:18-69",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
     extras=("eval-emb",),
 )
@@ -232,7 +230,6 @@ class EmbeddingSTS(Evaluator):
 
 @EVALUATORS.register(
     "embedding_linear_probe",
-    source="embedding-distill/TALAS-M-main/eval.py:71-137",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
     extras=("eval-emb",),
 )
@@ -268,7 +265,6 @@ class EmbeddingLinearProbe(Evaluator):
 
 @EVALUATORS.register(
     "embedding_pair",
-    source="embedding-distill/TALAS-M-main/eval.py:139-206",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
     extras=("eval-emb",),
 )
@@ -304,13 +300,11 @@ class EmbeddingPair(Evaluator):
 
 @EVALUATORS.register(
     "embedding_suite",
-    source="embedding-distill/TALAS-M-main/eval.py:208-273",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
     extras=("eval-emb",),
 )
 @EVALUATORS.register(
     "embedding_mteb",
-    source="embedding-distill/TALAS-M-main/eval.py:208-273",
 )
 class EmbeddingBenchmarkSuite(Evaluator):
     """Full 9-task MTEB evaluation suite for sentence embeddings (Classification, Pair, STS).

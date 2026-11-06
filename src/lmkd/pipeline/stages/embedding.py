@@ -1,6 +1,5 @@
 """Offline teacher sentence embeddings pipeline stage (TALAS).
 
-Source: embedding-distill/TALAS-M-main/tools/prepare_embedding.py:82-120
 Paper: TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings
 """
 
@@ -21,7 +20,6 @@ from lmkd.pipeline.stage import Stage, StageContext
 
 @STAGES.register(
     "embed_teacher",
-    source="embedding-distill/TALAS-M-main/tools/prepare_embedding.py:82-120",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
 )
 class EmbedTeacher(Stage):

@@ -21,7 +21,7 @@ reg_field("align.dtw_t2s_cost", "ragged", torch.float32, 0.0, None, "MCW: [P] ed
 def dtw(series_1, series_2, norm_func=np.linalg.norm):
     """Dynamic time warping used by MinED (modified from talcs/simpledtw).
 
-    Verbatim port of IMPACT/code/criterions/MinED.py:368-411. Returns ``(matches, cost, mappings_series_1,
+    Returns ``(matches, cost, mappings_series_1,
     mappings_series_2, matrix)``; ``mappings_series_2[j]`` lists the ``series_1`` indices matched to ``series_2[j]``."""
     matrix: np.ndarray = np.zeros((len(series_1) + 1, len(series_2) + 1))
     matrix[0, :] = np.inf
@@ -65,9 +65,7 @@ def dtw(series_1, series_2, norm_func=np.linalg.norm):
 
 
 def dtw_alignment(series_1, series_2, norm_func):
-    """Simple DTW path (FUSELLM style), list of ``(i, j)`` from the end of both series to ``(0, 0)``.
-
-    Verbatim port of IMPACT/code/criterions/MCW_KD.py:433-470."""
+    """Simple DTW path (FUSELLM style), list of ``(i, j)`` from the end of both series to ``(0, 0)``."""
     matrix: np.ndarray = np.zeros((len(series_1) + 1, len(series_2) + 1))
     matrix[0, :] = np.inf
     matrix[:, 0] = np.inf
@@ -108,7 +106,6 @@ def space_marker(tokenizer: Any) -> str:
 
 @ALIGNERS.register(
     "dtw_edit",
-    source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/MinED.py:107-182,368-411",
     extras=("ot",),
 )
 class DtwEdit(Aligner):
@@ -116,10 +113,9 @@ class DtwEdit(Aligner):
 
     MinED (``dtw_t_for_s``, target positions): DTW over the CONTEXT tokens of the response targets
     (``ids[plen-1 : L-1]``, since target ``t`` is predicted from token ``t-1``); a student token matched to exactly one
-    teacher token keeps the pair if ``require_id_map`` allows it (``student_id == vocab_map.tea2stu[teacher_id]``,
-    MinED.py:182). MCW (``full_sequence``): two DTWs over ALL positions (positional), ``dtw_s2t``/``dtw_t2s`` paths and
-    their edit costs. Fixed vs the original: special tokens are NOT skipped (``skip_special_tokens=True`` shortened
-    the token lists and shifted every index).
+    teacher token keeps the pair if ``require_id_map`` allows it (``student_id == vocab_map.tea2stu[teacher_id]``).
+    MCW (``full_sequence``): two DTWs over ALL positions (positional), ``dtw_s2t``/``dtw_t2s`` paths and
+    their edit costs. Note: special tokens are not skipped to preserve sequence alignment.
     """
 
     requires = IDS

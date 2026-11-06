@@ -41,7 +41,6 @@ def _warn_once(key: str, message: str) -> None:
 @CRITERIONS.register(
     "token_kd",
     paper="DistiLLM (Ko et al. 2024); CSD; GKD",
-    source="white-box-distillation/same-tokenizer/distillm/losses.py",
 )
 class TokenKD(Criterion):
     """Same-vocabulary token-level knowledge distillation with configurable divergence.

@@ -15,24 +15,18 @@ By the end of this tutorial, you will:
 Before downloading models or datasets, test your distillation criterion directly in memory with random synthetic tensors:
 
 ```bash
-# Test Forward KL (fkl) loss in seconds
-lmkd try fkl
+# Test token distillation loss in seconds
+lmkd try token_kd
 
-# Test Reverse KL (rkl) with temperature 2.0
-lmkd try rkl --params '{"temperature": 2.0}'
-
-# Test Jensen-Shannon Divergence (jsd)
-lmkd try jsd
+# Test standard cross-entropy task loss
+lmkd try nll
 ```
 
 Output:
 ```text
-[lmkd.try] Instantiating criterion 'fkl' with params {'temperature': 1.0}
-[lmkd.try] Synthesizing student & teacher logits: batch_size=2, seq_len=16, vocab_size=32000
-[lmkd.try] Forward pass computed successfully.
-[lmkd.try] Loss value: 2.1482
-[lmkd.try] Backward pass OK: grad norm = 0.0431
-[lmkd.try] Criterion 'fkl' is operational!
+Testing loss 'token_kd' (status: supported)...
+Success! Loss terms produced:
+  - token_kd: value=2.1482, reduction=token_sum
 ```
 
 ---
@@ -53,10 +47,13 @@ lmkd check -c recipes/same_tokenizer/fkl.yaml
 
 If validation succeeds, you will see:
 ```text
-✓ Recipe 'recipes/same_tokenizer/fkl.yaml' is valid.
-  Student: Qwen/Qwen3-0.6B
-  Teacher: Qwen/Qwen3-4B-Instruct-2507
-  Criterion: fkl (Forward KL Divergence)
+plugins: 7
+  - lmkd.losses.token_kd
+  - lmkd.losses.sft
+  - lmkd.data.transforms.tokenization
+  - lmkd.teachers.providers
+  - ...
+OK
 ```
 
 ---

@@ -10,7 +10,6 @@ Method overview:
 References:
 - Paper: LUFFY: Learning to Reason Under Off-Policy Guidance (NeurIPS 2025)
   https://arxiv.org/abs/2504.14945
-- Source: LUFFY/luffy/verl/verl/mix_src/
 """
 
 from __future__ import annotations

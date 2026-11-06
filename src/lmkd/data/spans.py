@@ -1,4 +1,4 @@
-"""Span and token offset mapping service (SGL segment/sentence.py:54-88, data/prepare.py:148-159)."""
+"""Span and token offset mapping service."""
 
 from __future__ import annotations
 
@@ -98,7 +98,6 @@ def prompt_response_offsets(
     ``(L, L)``), exactly like the training ids, then truncation is replayed from ``prompt_len`` / ``len(input_ids)``
     (right: cut the tail; left_prompt: drop the first ``len(p_ids) - prompt_len`` prompt tokens). The rebuilt ids
     must equal ``input_ids`` (round-trip check) or ``ok=False, reason="ids_mismatch@<pos>"``.
-    Source: IMPACT/code/sra_span_utils.py:283-314 (``compute_separate_offsets``; fixed: uses the real ids).
     """
     p_ids, p_off = _enc_offsets(tokenizer, prompt_text, prompt_add_special_tokens)
     r_ids, r_off = _enc_offsets(tokenizer, response_text, False)

@@ -20,8 +20,7 @@ def common_parent_groups(
 ) -> tuple[list[list[int]], list[list[int]]]:
     """Group two tokenizations into spans delimited by shared character boundaries.
 
-    Port of Awesome-Human-AI-Alignment-main/src/human_alignment/supervision/preference_distillation.py:65
-    (``DatasetFormatError`` -> ``ValueError``). Offsets are relative to the start of the response."""
+    Offsets are relative to the start of the response."""
     if not student_offsets or not teacher_offsets:
         raise ValueError("CTPD requires non-empty response tokenizations")
     end = max(int(student_offsets[-1][1]), int(teacher_offsets[-1][1]))
@@ -49,7 +48,6 @@ def common_parent_groups(
 
 @ALIGNERS.register(
     "parent_groups",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/supervision/preference_distillation.py:65",
 )
 class ParentGroups(Aligner):
     """Student / teacher response tokens grouped by shared character boundaries (CTPD ``common_parent_groups``).

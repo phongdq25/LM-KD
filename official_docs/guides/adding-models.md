@@ -1,12 +1,12 @@
-# Adding Models & API Teachers
+# Adding Models & Teachers
 
-LM-KD supports any causal decoder or encoder model available on the Hugging Face Hub, local checkpoints, and remote black-box API teachers.
+LM-KD supports any causal decoder or encoder model available on the Hugging Face Hub, local checkpoints, quantized models, and high-throughput external scorers like vLLM.
 
 ---
 
 ## 1. Adding Open-Weights Hugging Face Models
 
-Any model compatible with `AutoModelForCausalLM` or `AutoModel` can be specified directly in the recipe:
+Any model compatible with `AutoModelForCausalLM` or `AutoModel` can be specified directly in the recipe under `models`:
 
 ```yaml
 models:
@@ -17,50 +17,85 @@ models:
     trust_remote_code: false
 ```
 
-### Quantized Teachers
-To fit large teachers (e.g., 70B models) onto limited GPU memory during training, configure 4-bit or 8-bit quantization via `bitsandbytes`:
+### Quantized Teachers (4-bit, 8-bit, FP8)
+To fit large teachers (e.g., 70B models) onto limited GPU memory during training, set `dtype` in the teacher `ModelSpec`:
+- `dtype: nf4`: 4-bit NormalFloat quantization via `bitsandbytes` (frozen teacher only).
+- `dtype: int8`: 8-bit quantization via `bitsandbytes`.
+- `dtype: fp8`: Float8 weight-only quantization via `torchao` (requires CUDA compute capability sm89+ / Ada or Hopper).
 
 ```yaml
 models:
   teacher:
     path: meta-llama/Meta-Llama-3-70B-Instruct
-    quantization: bitsandbytes_4bit  # or bitsandbytes_8bit
-    dtype: bf16
+    dtype: nf4  # or int8, fp8
+    placement: same_device  # or device:1, cpu
 ```
 
 ---
 
-## 2. Adding a Black-Box API Teacher
+## 2. Fast Teacher Scoring with vLLM
 
-When the teacher model cannot be run locally (e.g., proprietary models such as Google Gemini or OpenAI GPT-4o), supervision takes the form of **synthetic data rollouts** or **logprob queries**.
-
-### Setting Up the API Teacher Provider
-LM-KD includes an asynchronous API provider in [`src/lmkd/teachers/providers.py`](../../src/lmkd/teachers/providers.py):
+When serving large frozen teachers with maximum throughput, LM-KD integrates with vLLM via the `vllm_scorer` provider:
 
 ```yaml
+models:
+  teacher:
+    path: meta-llama/Meta-Llama-3-70B-Instruct
+    dtype: bf16
+
 teacher:
-  provider: remote_api
-  api_backend: gemini  # or openai, anthropic
-  model_name: gemini-1.5-pro
-  api_key_env: GEMINI_API_KEY
-  rate_limit_qps: 10
-  cache_responses: true
-  cache_dir: ./caches/gemini_teacher
+  provider: vllm_scorer
+  k: 20
+  gpu_memory_utilization: 0.4
+  tensor_parallel_size: 2
 ```
 
-### Custom API Provider Implementation
-You can implement custom endpoints by inheriting from `TeacherProvider`:
+---
+
+## 3. Custom Teacher Provider Implementation
+
+To build custom teacher providers (e.g. streaming logprobs from a remote API or an external inference cluster), subclass `TeacherProvider` from [`src/lmkd/teachers/providers.py`](../../src/lmkd/teachers/providers.py):
 
 ```python
+# plugins/custom_teacher.py
+from __future__ import annotations
+from typing import ClassVar
+from lmkd.core.batch import Batch
+from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import TEACHERS
+from lmkd.models.forward import SideOutput, SideRequest
 from lmkd.teachers.providers import TeacherProvider
-from lmkd.teachers.signals import TeacherOutput
+from lmkd.teachers.signals import TeacherOutput, TeacherSignalSpec
 
-@TEACHERS.register("custom_api")
+@TEACHERS.register("custom_api_teacher")
 class CustomAPITeacher(TeacherProvider):
-    def get_signals(self, batch):
-        # Query remote API endpoint asynchronously
-        responses = self.client.batch_generate(batch.prompts)
-        return TeacherOutput(text=responses)
+    """Custom teacher provider querying an external service for teacher signals."""
+
+    capabilities: ClassVar[frozenset[str]] = frozenset({"topk", "seq_logp"})
+
+    class Config(BaseConfig):
+        endpoint_url: str = "http://localhost:8000/v1/score"
+        api_key_env: str = "TEACHER_API_KEY"
+
+    def signals(
+        self,
+        batch: Batch,
+        spec: TeacherSignalSpec | None,
+        req: SideRequest | None,
+        student: SideOutput | None,
+    ) -> TeacherOutput | None:
+        # Query remote service for token-level log probabilities
+        out = TeacherOutput()
+        # Populate out.topk_logp, out.topk_indices, or out.seq_logp
+        return out
 ```
 
+Reference the custom teacher provider in your recipe:
+```yaml
+imports:
+  - ./plugins/custom_teacher.py
+
+teacher:
+  provider: custom_api_teacher
+  endpoint_url: http://my-cluster:8000/score
+```

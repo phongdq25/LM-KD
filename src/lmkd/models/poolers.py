@@ -60,7 +60,6 @@ class LastTokenPooler(Pooler):
 
 @POOLERS.register(
     "cls_attention",
-    source="embedding-distill/TALAS-M-main/trainer.py:6-25",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
 )
 class ClsAttentionPooler(Pooler):
@@ -72,7 +71,6 @@ class ClsAttentionPooler(Pooler):
         s = s + (1.0 - mask) * -1e9  (or torch.finfo(s.dtype).min / 2 for non-fp32 to prevent overflow)
         w = softmax(s, dim=-1)
         return (hidden * w.unsqueeze(-1)).sum(1)
-    Source: embedding-distill/TALAS-M-main/trainer.py:6-25
     """
 
     class Config(BaseConfig):

@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import warnings
 
-from baselines.longCoT.sgl_spectral.loss import WeightedNLL
 from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import CRITERIONS
 from lmkd.losses.base import Criterion, LossContext, LossOutput, LossTerm
 from lmkd.losses.fused import fused_nll, liger_available
 from lmkd.models.forward import FeatureRequest, SideRequest
-
-__all__ = ["NLL", "WeightedNLL"]
 
 _WARNED: set[str] = set()
 
@@ -86,4 +83,30 @@ class NLL(Criterion):
         )
 
 
-__all__ = ["NLL"]
+@CRITERIONS.register("weighted_nll")
+class WeightedNLL(Criterion):
+    """sum_t w_t * mask_t * (-log p_t). Weights do NOT change the denominator Z (SGL Eq. 9)."""
+
+    requires = ("seq.token_weights",)
+
+    class Config(BaseConfig):
+        chunk_size: int = 1024
+        fused: str = "off"  # off | auto | on
+
+    def features(self) -> FeatureRequest:
+        return FeatureRequest(student=SideRequest(logits="view"))
+
+    def forward(self, ctx: LossContext) -> LossOutput:
+        if self.cfg.fused == "on":
+            raise ValueError("weighted_nll does not support fused execution (token weights are present)")
+        if self.cfg.fused == "auto":
+            _warn_once("weighted_nll_fallback", "weighted_nll fused fallback: token weights are present")
+
+        labels = ctx.batch["student.labels"]
+        mask = ctx.supervised_mask()
+        w = ctx.batch["seq.token_weights"]
+        logp = ctx.student_logits().target_logp(labels, chunk_size=self.cfg.chunk_size)
+        return LossOutput(terms={"wnll": LossTerm(-(logp * mask * w).sum(), "token_sum")})
+
+
+__all__ = ["NLL", "WeightedNLL"]

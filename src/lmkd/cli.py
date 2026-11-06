@@ -1,4 +1,4 @@
-"""Command line: ``lmkd list|check|config|train|pipeline|eval|new``."""
+"""Command line: ``lmkd list|check|config|train|pipeline|eval|new|init``."""
 
 from __future__ import annotations
 
@@ -221,6 +221,17 @@ def _cmd_new(args) -> int:
     return create_scaffold(args.kind, args.name, domain=args.domain)
 
 
+def _cmd_init(args) -> int:
+    from lmkd.scaffold.init_baseline import create_baseline_template
+
+    return create_baseline_template(
+        args.name,
+        target=args.target,
+        domain=args.domain,
+        force=args.force,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="lmkd", description="LM-KD distillation framework")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -271,11 +282,49 @@ def main(argv: list[str] | None = None) -> int:
     pn = sub.add_parser("new", help="scaffold a new plugin, test, and recipe")
     pn.add_argument(
         "kind",
-        choices=["criterion", "transform", "stage", "producer", "step_strategy", "grad_transform", "callback"],
+        choices=[
+            "criterion",
+            "transform",
+            "stage",
+            "producer",
+            "step_strategy",
+            "grad_transform",
+            "callback",
+            "baseline",
+            "method",
+        ],
     )
     pn.add_argument("name", help="plugin registry name")
     pn.add_argument("--domain", default="experimental", help="domain folder for recipe (criterions only)")
     pn.set_defaults(fn=_cmd_new)
+
+    # init
+    pinit = sub.add_parser("init", help="initialize a full baseline/method template directory (dev or baseline)")
+    pinit.add_argument("name", nargs="?", default=None, help="method/baseline name (prompts if omitted)")
+    pinit.add_argument(
+        "-t",
+        "--target",
+        choices=["dev", "baseline", "baselines"],
+        default="dev",
+        help="target directory root: 'dev' (dev/<name>) or 'baseline' (src/baselines/<name>)",
+    )
+    pinit.add_argument(
+        "--baseline",
+        action="store_const",
+        const="baseline",
+        dest="target",
+        help="shortcut for --target baseline (creates in src/baselines/<name>)",
+    )
+    pinit.add_argument(
+        "--dev",
+        action="store_const",
+        const="dev",
+        dest="target",
+        help="shortcut for --target dev (creates in dev/<name>)",
+    )
+    pinit.add_argument("-d", "--domain", default=None, help="optional domain subfolder (e.g. self_distill)")
+    pinit.add_argument("-f", "--force", action="store_true", help="overwrite existing template files")
+    pinit.set_defaults(fn=_cmd_init)
 
     # explain
     pe = sub.add_parser("explain", parents=[recipe_parser], help="print architectural summary of a recipe")

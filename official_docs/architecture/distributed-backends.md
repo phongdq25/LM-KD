@@ -56,7 +56,7 @@ Native PyTorch distributed backend providing efficient forward/backward paramete
 
 ## 2. Global Token Normalization (`num_items_in_batch`)
 
-A common flaw in distributed LLM training implementations is **naive micro-batch loss averaging**. 
+A common flaw in distributed LLM training implementations is **naive micro-batch loss averaging**.
 
 ### The Problem with Naive Averaging
 In causal language modeling, different micro-batches contain different numbers of valid (non-padded, supervised) response tokens. If micro-batch 1 has 1,200 tokens and micro-batch 2 has 300 tokens:
@@ -78,7 +78,7 @@ This ensures that gradient updates are **numerically identical** regardless of b
 
 ## 3. Decoupled Rollout with Ray & vLLM
 
-For on-policy algorithms (such as OPSD, GKD, and SPIN), generating autoregressive sequences on training GPUs causes severe pipeline bubbles. 
+For on-policy algorithms (such as OPSD, GKD, and SPIN), generating autoregressive sequences on training GPUs causes severe pipeline bubbles.
 
 LM-KD supports a **decoupled rollout architecture**:
 1. **Training Cluster:** Runs DeepSpeed ZeRO-2 or FSDP across training GPUs, computing backward passes.

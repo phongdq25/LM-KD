@@ -6,8 +6,6 @@ Method overview:
 - Applies importance sampling correction against rollout probabilities.
 
 References:
-- Paper: Self-Distillation with Preference Optimization (2024)
-- Source: Self-Distill/SDPO-main (verl/trainer/ppo/core_algos.py & ray_trainer.py)
 """
 
 from __future__ import annotations

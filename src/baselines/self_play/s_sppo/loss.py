@@ -9,7 +9,6 @@ semantically close:
   L_base = ((logits_w - (1 / beta) * (p_c_win - 0.5))^2 + (logits_l - (1 / beta) * (p_c_lose - 0.5))^2) / 2
   L_S-SPPO = L_base + lam * <h_w, h_l>
 
-Source: APSP/SPPO/sppo/trainer.py:914-928
 """
 
 from __future__ import annotations
@@ -96,7 +95,7 @@ def sspppo_loss(
     return losses, chosen_rewards, rejected_rewards
 
 
-@CRITERIONS.register("s_sppo", source="APSP/SPPO/sppo/trainer.py:914")
+@CRITERIONS.register("s_sppo")
 class SSPPO(Criterion):
     """Semantic-Calibrated Self-Play Preference Optimization (S-SPPO) criterion."""
 

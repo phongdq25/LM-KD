@@ -460,14 +460,14 @@ def load_ds_config(spec: str | dict | None) -> dict:
     return json.loads(p.read_text())
 
 
-@ENGINES.register("accelerate", source="white-box-distillation/same-tokenizer/finetune.py:557-570")
+@ENGINES.register("accelerate")
 class AccelerateEngine(Engine):
     """DeepSpeed ZeRO-1/2/3 data-parallel engine; ``accelerate.PartialState`` only sets up rank/device.
 
     DeepSpeed owns backward (loss scaling), gradient reduction over the whole TrainableBundle
-    (student + head + aux modules), clipping, precision and the optimizer step. The DS config is
-    patched like finetune.py:557-570 (micro-batch, GA, clipping, precision) but the teacher is kept
-    OUT of the DS engine (unlike IMPACT distillation.py:624-630, which casts/replicates it).
+    (student + head + aux modules), clipping, precision and the optimizer step. The DeepSpeed config
+    configures micro-batch size, gradient accumulation, clipping, and precision, while the teacher
+    model is kept outside the DeepSpeed engine.
 
     ``batch_size`` / ``micro_batch_size`` / ``gradient_clipping`` mirror ``train.batch_size``,
     ``train.micro_batch_size`` and ``grad.clip_norm``: the engine is built before the runtime, so

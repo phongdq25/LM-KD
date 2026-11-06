@@ -68,7 +68,7 @@ def score_with_llm(llm, seqs: list[list[int]], spec: ScoreSpec) -> list[list[dic
     return res
 
 
-@ROLLOUT.register("vllm_colocate", source="Self-Distill/OPSD-main/opsd_trainer.py:301-354,1175-1245")
+@ROLLOUT.register("vllm_colocate")
 class VLLMColocate(RolloutEngine):
     """vLLM engine on the training GPU; weights follow the student (full: ``load_weights``; LoRA:
     ``merge`` or ``hot_load``). While training it sleeps to give its memory back.
@@ -78,7 +78,6 @@ class VLLMColocate(RolloutEngine):
     Sync is lazy: weights are pushed at the first ``generate`` after the step changed (or after the
     ``rollout_weight_sync`` callback marked them stale; with that callback present ``every`` is honoured
     and the step-change auto detection is switched off).
-    Source: Self-Distill/OPSD-main/opsd_trainer.py:301-354,1175-1250.
     """
 
     class Config(BaseConfig):

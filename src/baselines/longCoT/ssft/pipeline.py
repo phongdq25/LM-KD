@@ -35,7 +35,6 @@ ANSWER_TEMPLATE = "</think> So, the final answer is \\boxed{{{answer}}}"
 def compact_ig(scores: list[list[float]]) -> list[list[float]]:
     """Compact token IG into [count, sum(abs), sum(signed)] per segment.
 
-    Source: SGL/src/sgl/ssft/attribution.py:163-171.
     """
     return [[len(s), round(sum(abs(x) for x in s), 8), round(sum(s), 8)] for s in scores]
 
@@ -126,11 +125,11 @@ def _integrated_gradients(
     return attribution / attribution.norm().clamp_min(1e-12)
 
 
-@STAGES.register("ig_attribution", source="SGL/src/sgl/ssft/attribution.py:36-171")
+@STAGES.register("ig_attribution")
 class IGAttribution(Stage):
     """Integrated gradients from segment tokens to boxed-answer log probability.
 
-    IG = (x−pad) mean_j ∇log p(answer|x_j); source: SGL ssft/attribution.py:36-171.
+    IG = (x−pad) mean_j ∇log p(answer|x_j).
     """
 
     inputs: ClassVar[dict[str, str]] = {"data": "dataset"}
@@ -224,7 +223,7 @@ class IGAttribution(Stage):
         return {"n": len(rows), "signals": ["segment_ig"]}
 
 
-@STAGES.register("ssft", source="SegmentSelectiveSFT-main/Attribution/get_important_segments.py")
+@STAGES.register("ssft")
 class SSFTStage(Stage):
     """Self-contained end-to-end Segment-Selective SFT (SSFT) stage.
 

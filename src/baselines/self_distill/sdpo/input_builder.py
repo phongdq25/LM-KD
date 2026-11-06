@@ -1,6 +1,5 @@
 """SDPO: Self-Distillation with Preference Optimization - Teacher Input Builder (SDPOReprompt).
 
-Source: Self-Distill/SDPO-main (verl/trainer/ppo/ray_trainer.py:611-797)
 SDPO teacher prompts use the first successful peer response and/or verifier feedback.
 """
 
@@ -23,7 +22,7 @@ from lmkd.teachers.input_builders import (
 )
 
 
-@TEACHER_INPUTS.register("sdpo_reprompt", source="Self-Distill/SDPO-main/verl/trainer/ppo/ray_trainer.py:611-797")
+@TEACHER_INPUTS.register("sdpo_reprompt")
 class SDPOReprompt(TeacherInputBuilder):
     """SDPO teacher prompts use the first successful peer response and/or verifier feedback."""
 

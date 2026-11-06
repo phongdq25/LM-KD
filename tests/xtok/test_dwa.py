@@ -2,7 +2,6 @@
 
 from types import SimpleNamespace
 
-import pytest
 import torch
 import torch.nn as nn
 
@@ -10,7 +9,6 @@ from baselines.cross_tokenizer.dwa import (
     DWAKD,
     SoftDTW,
     compute_dwa_band_penalty,
-    pairwise_cosine_distance,
     soft_dtw_divergence,
 )
 from lmkd.core.batch import Batch

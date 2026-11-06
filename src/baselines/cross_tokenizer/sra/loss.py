@@ -1,4 +1,4 @@
-"""Span Representation Alignment from IMPACT/code/criterions/SRA.py."""
+"""Span Representation Alignment criterion."""
 
 from __future__ import annotations
 
@@ -100,11 +100,10 @@ def _shared_ids(rt: Any, mode: str) -> tuple[torch.Tensor, torch.Tensor] | None:
     raise ValueError(f"unknown SRA shared_vocab mode {mode!r}")
 
 
-@CRITERIONS.register("sra", source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/SRA.py:17-355")
+@CRITERIONS.register("sra")
 class SRA(Criterion):
     """Attention-pooled span cosine + geometric similarity MSE + shared-vocabulary span KL.
 
-    Source: IMPACT/code/criterions/SRA.py:17-355 and sra_span_utils.py:203-280.
     Original alpha is represented by aggregator kd_mix(kd_ratio=1-alpha, ce_alias=nll).
     legacy_scale reproduces its erroneous extra token-denominator division.
     """

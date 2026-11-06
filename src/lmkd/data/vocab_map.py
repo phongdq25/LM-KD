@@ -17,14 +17,14 @@ from lmkd.data.transforms.base import Transform
 
 
 def normalize_token(tok: str) -> str:
-    """GPT-2 ``Ġ`` -> SentencePiece ``▁`` (DSKDv2 distiller.py:130, IMPACT impact_utils.py:19)."""
+    """Normalize token representations: GPT-2 ``Ġ`` -> SentencePiece ``▁``."""
     return tok.replace("Ġ", "▁")
 
 
 def space_mask(tokenizer: Any, mode: str, size: int) -> torch.Tensor:
     """Bool mask ``[size]`` of tokens by the ``+``-joined ``mode`` (space, tab, newline, special).
 
-    Port of tokenkit/utils.py:76-99 ``get_space_mask`` (keeps tokenkit's names: ``tab`` <-> ``Ċ``, ``newline`` <->
+    Handles space masks (token names: ``tab`` <-> ``Ċ``, ``newline`` <->
     ``ĉ``) on ``convert_ids_to_tokens``; the tail past ``len(tokenizer)`` (padded embeddings) is False.
     """
     n = len(tokenizer)
@@ -71,13 +71,12 @@ def _first_inverse(tea2stu: torch.Tensor, n_stu: int) -> torch.Tensor:
 class VocabMap:
     """Overlap / id mapping between student and teacher vocabularies.
 
-    ``overlap_s/t`` follow the student's vocab in id order (DSKDv2 ``distiller.py:130-133`` iterates ``get_vocab()``,
-    whose order is only stable for slow tokenizers; id order is the same there; the list is truncated by
-    ``topk_vocab``); ``overlap_sorted_*`` are sorted by normalized token string (IMPACT ``impact_utils.py:121``).
-    ``tea2stu`` comes from a JSON file (``{"teacher_id": student_id}``, built by id, not by dict order) or from exact
-    normalized-string match; ``stu2tea`` keeps the first teacher id (``IMPACT distiller.py:41-60``);
-    ``tea2stu_exact`` is ``student.convert_tokens_to_ids(teacher_token)`` (ETA; a fast tokenizer returns its unk id
-    for unknown tokens, kept as in the original).
+    ``overlap_s/t`` follow the student's vocab in id order (the list is truncated by
+    ``topk_vocab``); ``overlap_sorted_*`` are sorted by normalized token string.
+    ``tea2stu`` comes from a JSON file (``{"teacher_id": student_id}``) or from exact
+    normalized-string match; ``stu2tea`` keeps the first teacher id;
+    ``tea2stu_exact`` is ``student.convert_tokens_to_ids(teacher_token)`` (ETA; a fast tokenizer
+    returns its unk id for unknown tokens).
     """
 
     student_vocab_size: int
@@ -180,7 +179,7 @@ def vocab_map_kwargs(cfg: Any) -> dict[str, Any]:
     }
 
 
-@TRANSFORMS.register("load_vocab_map", source="IMPACT/code/distiller.py:41-60")
+@TRANSFORMS.register("load_vocab_map")
 class LoadVocabMap(Transform):
     """Load (or build and cache) the student/teacher :class:`VocabMap` into ``rt.data_ctx.vocab_map`` at setup;
     samples pass through unchanged. Put it before any ``align`` transform (no pipeline needed).

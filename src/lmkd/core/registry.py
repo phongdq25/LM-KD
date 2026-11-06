@@ -4,7 +4,7 @@ Usage::
 
     from lmkd.core.registry import CRITERIONS
 
-    @CRITERIONS.register("my_loss", paper="arXiv:xxxx", source="baseline/file.py:10")
+    @CRITERIONS.register("my_loss", paper="arXiv:xxxx")
     class MyLoss(Criterion):
         class Config(BaseConfig):
             temperature: float = 1.0

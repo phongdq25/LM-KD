@@ -18,10 +18,10 @@ from lmkd.pipeline.stages.xtok import tokenizer_fingerprint
 
 
 @STAGES.register(
-    "impact_calibrate", source="white-box-distillation/cross-tokenizer/IMPACT/code/impact_utils.py:179-267"
+    "impact_calibrate"
 )
 class ImpactCalibrate(Stage):
-    """Offline mean teacher block-influence scores on raw training prompts; IMPACT impact_utils.py:179-267."""
+    """Offline mean teacher block-influence scores on raw training prompts."""
 
     code_version = "1"
 

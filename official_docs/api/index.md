@@ -46,11 +46,12 @@ rt.begin()
 while not rt.done:
     # Executes one optimizer step (including micro-batches & all-reduce)
     step_output = rt.train_step()
-    
+
     if rt.state.step % 50 == 0:
         eval_metrics = rt.evaluate()
-        print(f"Step {rt.state.step} | Loss: {step_output.loss:.4f} | Eval: {eval_metrics}")
-        
+        loss_val = float(step_output.metrics.get("loss", 0.0))
+        print(f"Step {rt.state.step} | Loss: {loss_val:.4f} | Eval: {eval_metrics}")
+
 rt.end()
 rt.save("final_checkpoint")
 ```
@@ -61,4 +62,5 @@ rt.save("final_checkpoint")
 
 - **[Core API Reference](core.md):** `Batch`, `FieldSpec`, `Registry`, `TrainState`, `Runtime`.
 - **[Criterions & Losses API](criterions.md):** `Criterion`, `LossOutput`, `LossTerm`, `FeatureRequest`.
+- **[CLI Reference](cli-reference.md):** Complete guide to all 10 `lmkd` CLI commands (`train`, `eval`, `check`, `try`, `pipeline`, `init`, etc.).
 

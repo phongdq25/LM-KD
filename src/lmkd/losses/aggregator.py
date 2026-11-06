@@ -96,11 +96,10 @@ class KDMix(WeightedSum):
         return super().combine(scaled, norms)
 
 
-@AGGREGATORS.register("gradmag", source="white-box-distillation/cross-tokenizer/IMPACT/code/alm_multitask.py")
+@AGGREGATORS.register("gradmag")
 class GradMag(LossAggregator):
     """L = sum_i inverse-gradient-norm weight_i * configured weight_i * normalized task_i.
 
-    Source: IMPACT/code/alm_multitask.py:68-116. Requires step: multi_objective_grad.
     """
 
     class Config(BaseConfig):

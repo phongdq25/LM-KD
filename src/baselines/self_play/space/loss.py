@@ -10,7 +10,6 @@ Objective:
   gen_loss = mu * logsigmoid(log_ratio_gen + log(mu))
   L_SPACE = -(real_loss + gen_loss)
 
-Source: APSP/trainers.py:127-145
 """
 
 from __future__ import annotations
@@ -65,7 +64,7 @@ def space_loss(
     return losses, chosen_rewards, rejected_rewards
 
 
-@CRITERIONS.register("space", source="APSP/trainers.py:127")
+@CRITERIONS.register("space")
 class SPACE(Criterion):
     """Self-Play via Noise Contrastive Estimation (SPACE) criterion."""
 

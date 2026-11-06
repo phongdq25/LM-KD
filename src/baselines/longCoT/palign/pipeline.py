@@ -43,11 +43,10 @@ from lmkd.rollout.vllm_colocate import make_llm
 FIELDS.register(FieldSpec("meta.source_id", "meta"))
 
 
-@STAGES.register("palign_search", source="SGL/src/sgl/palign/truncate.py:40-162")
+@STAGES.register("palign_search")
 class PAlignSearch(Stage):
     """Find the shortest useful CoT prefix with a lockstep student judge.
 
-    Source: SGL palign/truncate.py:40-162; P-ALIGN/src/binary_search.py:46-154.
     """
 
     supports_shards = True
@@ -160,11 +159,10 @@ class PAlignSearch(Stage):
         return {"n": len(rows)}
 
 
-@STAGES.register("generate", source="SGL/src/sgl/palign/align.py:23-91")
+@STAGES.register("generate")
 class Generate(Stage):
     """Generate text continuations from tokenized prompts using HF or vLLM.
 
-    Source: SGL palign/align.py:23-91 and P-ALIGN/src/prefix-alignment.py.
     """
 
     supports_shards = True
@@ -309,11 +307,10 @@ class Generate(Stage):
         return {"n": len(rows)}
 
 
-@STAGES.register("verify_filter", source="SGL/src/sgl/palign/build.py:22-62")
+@STAGES.register("verify_filter")
 class VerifyFilter(Stage):
     """Keep mathematically correct continuations and optionally assemble P-ALIGN text.
 
-    Source: SGL palign/build.py:22-62.
     """
 
     supports_shards = True
@@ -379,7 +376,7 @@ class VerifyFilter(Stage):
         return {"kept": len(rows), "dropped": dropped}
 
 
-@STAGES.register("palign", source="SGL/src/sgl/palign")
+@STAGES.register("palign")
 class PAlignStage(Stage):
     """Self-contained end-to-end Prefix-Search Alignment (P-ALIGN) stage.
 

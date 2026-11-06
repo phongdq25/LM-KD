@@ -96,7 +96,7 @@ official_docs/
 │   └── 7-self-play-fine-tuning.md   # Adversarial Self-Play Fine-Tuning
 ├── results/                         # Master Consolidated Leaderboards
 │   └── leaderboards.md              # All 7 unedited benchmark tables compiled in one reference
-├── api/                             # Python API reference for Core, Models, Losses, Teachers, Trainers
+├── api/                             # Python & CLI Reference (Core, Losses, Trainers, CLI Commands)
 ├── tutorials/                       # Interactive end-to-end notebooks & research workflows
 └── contributing/                    # Contribution standards, PR workflows, and code hygiene
 ```

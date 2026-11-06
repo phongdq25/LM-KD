@@ -188,7 +188,6 @@ class SGDBuilder(OptimizerBuilder):
 @OPTIMIZERS.register(
     "muon",
     paper="Muon (Jordan et al. 2024)",
-    source="embedding-distill/TALAS-M-main/train_talas_m.py:38-71",
 )
 class MuonBuilder(OptimizerBuilder):
     """Muon optimizer for 2-D weight matrices (Jordan et al. 2024)."""

@@ -1,7 +1,6 @@
 """RLSD: Reinforcement Learning Self-Distillation - Policy Optimization Loss.
 
 Paper: Reinforcement Learning with Self-Distillation
-Source: Self-Distill/RLSD-main (verl/workers/actor/dp_opsd_actor.py:426-579)
 
 Key Method Characteristics:
 1. Clipped surrogate policy gradient with asymmetric lower/upper clipping thresholds:
@@ -33,7 +32,7 @@ def ppo_clip_per_token(
     clip_high: float,
     clip_c: float | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Clipped PPO numerator per token (RLSD dp_opsd_actor.py:426-579)."""
+    """Clipped PPO surrogate objective per token."""
     ratio = (logp - old_logp.detach()).clamp(-20, 20).exp()
     pg1 = -adv.detach() * ratio
     pg2 = -adv.detach() * ratio.clamp(1 - clip_low, 1 + clip_high)
@@ -58,8 +57,8 @@ def grpo_loss(
     return (per_token_loss * mask).sum() / mask.sum().clamp_min(1)
 
 
-@CRITERIONS.register("rlsd", source="Self-Distill/RLSD-main/verl/workers/actor/dp_opsd_actor.py:426-579", force=True)
-@CRITERIONS.register("rlsd_loss", source="Self-Distill/RLSD-main/verl/workers/actor/dp_opsd_actor.py:426-579", force=True)
+@CRITERIONS.register("rlsd", force=True)
+@CRITERIONS.register("rlsd_loss", force=True)
 class RLSDLoss(Criterion):
     """RLSD policy optimization loss over STGCA modulated advantages."""
 

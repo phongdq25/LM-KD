@@ -12,7 +12,7 @@ from baselines.longCoT import RenderCoT, Segment, TokenizeCoT
 from baselines.longCoT.sgl_spectral import AllocateRegion, Provenance, SelectEnergyTopP, StepTransitions
 from lmkd.data.context import DataContext
 
-SGL_ROOT = Path("/data/home/phongdq/projects/LM-KD/Long-CoT-Disitllation/SpectralGuidedLearning")
+SGL_ROOT = Path(__file__).resolve().parents[3] / "Long-CoT-Disitllation" / "SpectralGuidedLearning"
 SGL_SRC = SGL_ROOT / "src"
 ASSETS_DIR = SGL_ROOT / "tests/regression/assets"
 

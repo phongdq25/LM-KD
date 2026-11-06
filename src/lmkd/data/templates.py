@@ -1,10 +1,9 @@
-"""Prompt formatting and thinking block reconciliation (SGL data/prepare.py:32-101)."""
+"""Prompt formatting and thinking block reconciliation."""
 
 from __future__ import annotations
 
 from typing import Any
 
-# Byte-identical to SGL data/prepare.py:24
 PROMPT_TEMPLATE = "Please reason step by step, and put your final answer within \\boxed{{}}.{problem}"
 PALIGN_EMPTY_THINK = "<think>\n\n</think>\n\n"
 

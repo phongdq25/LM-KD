@@ -1,4 +1,4 @@
-"""Step segmentation rules (SGL segment/sentence.py:14-33, segment/rules.py:12-62)."""
+"""Step segmentation rules."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ class Segmenter(Plugin):
         raise NotImplementedError
 
 
-@SEGMENTERS.register("sentence", source="SpectralGuidedLearning/src/sgl/segment/sentence.py:14-33")
+@SEGMENTERS.register("sentence")
 class SentenceSegmenter(Segmenter):
     """Split at sentence-ending punctuation/braces followed by whitespace and capital letter (lossless)."""
 
@@ -75,7 +75,7 @@ class SentenceSegmenter(Segmenter):
         return pieces
 
 
-@SEGMENTERS.register("paragraph", source="SpectralGuidedLearning/src/sgl/segment/rules.py:23-53")
+@SEGMENTERS.register("paragraph")
 class ParagraphSegmenter(Segmenter):
     """Split at paragraph break (\\n\\n) with delimiter attached to following segment (lossless)."""
 
@@ -85,7 +85,7 @@ class ParagraphSegmenter(Segmenter):
         return _split_segments(text, PARAGRAPH_PATTERN)
 
 
-@SEGMENTERS.register("cue", source="SpectralGuidedLearning/src/sgl/segment/rules.py:23-53")
+@SEGMENTERS.register("cue")
 class CueSegmenter(Segmenter):
     """Split at backtracking cues (\\n\\nWait, \\n\\nAlternatively...) (lossless)."""
 
@@ -95,7 +95,7 @@ class CueSegmenter(Segmenter):
         return _split_segments(text, CUE_PATTERN)
 
 
-@SEGMENTERS.register("palign_sentences", source="SpectralGuidedLearning/src/sgl/segment/rules.py:56-62")
+@SEGMENTERS.register("palign_sentences")
 class PAlignSentencesSegmenter(Segmenter):
     """P-ALIGN '. ' sentence splitter (non-lossless, strips each piece and appends '.')."""
 

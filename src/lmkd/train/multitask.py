@@ -1,4 +1,4 @@
-"""Local GradMag computations from IMPACT/code/alm_multitask.py:55-108."""
+"""Local GradMag gradient magnitude computations."""
 
 from __future__ import annotations
 

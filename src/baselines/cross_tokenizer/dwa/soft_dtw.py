@@ -286,7 +286,6 @@ def compute_dwa_band_penalty(
 ) -> torch.Tensor:
     """Calculate entropy-guided adaptive window (soft band) penalty matrix.
 
-    Source: MTA/dwa_mta/code/criterions/dwa_kd.py:317-368.
     """
     if s_len <= 0 or t_len <= 0 or band_width <= 0:
         return torch.zeros((s_len, t_len), device=align_matrix.device, dtype=align_matrix.dtype)

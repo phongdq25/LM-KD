@@ -162,7 +162,6 @@ class StandardStep(StepStrategy):
 class SAMStep(StepStrategy):
     """Two-pass sharpness-aware step: perturb by rho*g/||g||, then update at w+e.
 
-    Source: Foret et al. (2021), SAM; TALAS-M train_asam.py:88-134. Example recipe:
     ``step: {type: asam, rho: 0.05, clip_before_perturb: true}``.
     Works with the local engine and bf16; DeepSpeed and fp16 GradScaler are unsupported.
     Unlike TALAS, configured ClipNorm transforms can clip any parameter group, not just student.
@@ -262,22 +261,20 @@ class SAMStep(StepStrategy):
         return StepOutput(phase2, int(norms.z_tok), int(norms.z_seq), skipped=not stepped)
 
 
-@STEP_STRATEGIES.register("asam", source="embedding-distill/TALAS-M-main/train_asam.py:88-134")
+@STEP_STRATEGIES.register("asam")
 class ASAMStep(SAMStep):
     """Adaptive SAM: use |w|g for the norm and w²g for the perturbation.
 
-    Source: TALAS-M train_asam.py:88-134; Kwon et al. (2021), ASAM.
     """
 
     class Config(SAMStep.Config):
         adaptive: bool = True
 
 
-@STEP_STRATEGIES.register("multi_objective_grad", source="IMPACT/code/alm_multitask.py:95-116")
+@STEP_STRATEGIES.register("multi_objective_grad")
 class MultiObjectiveGradStep(StandardStep):
     """Weight each task by its local last-block gradient norm, then run the ordinary backward.
 
-    Source: IMPACT/code/alm_multitask.py:68-116. Weights are recomputed for every micro-batch
     and detached, so the final gradient is sum_i w_i * grad(L_i). Extra autograd.grad calls
     do not write .grad or replace engine.backward. DeepSpeed/ZeRO is unsupported because its
     sharded gradients do not satisfy this local autograd.grad contract. Each micro-batch adds
@@ -394,7 +391,7 @@ class MultiObjectiveGradStep(StandardStep):
         self.term_grads.clear()
 
 
-@STEP_STRATEGIES.register("ppo_epochs", source="Self-Distill/RLSD-main/verl/workers/actor/dp_opsd_actor.py:426-579")
+@STEP_STRATEGIES.register("ppo_epochs")
 class PPOEpochsStep(StepStrategy):
     """PPO epochs with token-mean normalization across all ranks/micros of each mini-batch.
 

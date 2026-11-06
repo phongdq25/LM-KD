@@ -5,6 +5,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from lmkd.scaffold.init_baseline import create_baseline_template, parse_init_target
+
+__all__ = ["create_scaffold", "create_baseline_template", "parse_init_target"]
+
 _KINDS = {
     "criterion": {
         "module": "losses",
@@ -117,6 +121,10 @@ class {cls_name}(Callback):
 
 
 def create_scaffold(kind: str, name: str, domain: str = "experimental", root: Path | None = None) -> int:
+    if kind in ("baseline", "method"):
+        target = "baseline" if kind == "baseline" else "dev"
+        dom = None if domain == "experimental" else domain
+        return create_baseline_template(name, target=target, domain=dom, root=root)
     if kind not in _KINDS:
         sys.stderr.write(f"Unknown kind '{kind}'. Must be one of: {sorted(_KINDS)}\n")
         return 1

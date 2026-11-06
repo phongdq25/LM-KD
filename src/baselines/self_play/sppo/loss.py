@@ -8,7 +8,6 @@ iterative soft win-rate regression against reference models:
   loss_l = (logits_l - (1 / beta) * (P_lose - 0.5))^2
   L_SPPO = (loss_w + loss_l) / 2
 
-Source: APSP/SPPO/sppo/trainer.py:906-913
 """
 
 from __future__ import annotations
@@ -83,7 +82,7 @@ def sppo_loss(
     return losses, chosen_rewards, rejected_rewards
 
 
-@CRITERIONS.register("sppo", source="APSP/SPPO/sppo/trainer.py:906")
+@CRITERIONS.register("sppo")
 class SPPO(Criterion):
     """Self-Play Preference Optimization (SPPO) criterion."""
 

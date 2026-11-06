@@ -12,8 +12,7 @@ import lmkd
 # ----------------------------------------------------------------------------- tier 1
 # A function on HF-style outputs, registered as a normal criterion: composable in `loss.terms`
 # with any built-in criterion, weight and schedule. Hyperparameters = keyword args (strict Config).
-@lmkd.register_loss("example_fkl", teacher=True, reduction="token_sum",
-                    source="white-box-distillation/same-tokenizer/distillm/losses.py:4")
+@lmkd.register_loss("example_fkl", teacher=True, reduction="token_sum")
 def example_fkl(s, t, batch, temperature: float = 1.0):
     """Forward KL in cross-entropy form, -sum_v p_T log q_S, written like the original code."""
     s_logits = s.logits[:, :-1] / temperature           # HF convention: row t predicts token t+1

@@ -1,7 +1,6 @@
 """Variational Preference Distillation (VPD) / PAD.
 
 Plackett-Luce negative log-likelihood of teacher ranking over response groups.
-Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:67-80
 """
 
 from __future__ import annotations
@@ -35,14 +34,12 @@ def vpd_loss(student_scores: torch.Tensor, teacher_scores: torch.Tensor, *, beta
 
 @CRITERIONS.register(
     "vpd",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:67",
 )
 class VPD(Criterion):
     """Plackett-Luce negative log-likelihood of teacher ranking over response groups.
 
     Chosen response is index 0, rejected is index 1.
     Formula: -log PL(argsort_desc(teacher_scores) | beta * student_scores).
-    Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:67-80
     """
 
     needs_teacher: ClassVar[bool] = False

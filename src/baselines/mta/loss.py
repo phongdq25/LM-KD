@@ -38,7 +38,7 @@ if "align.mta_words" not in FIELDS:
     )
 
 
-@CRITERIONS.register("mta", source="white-box-distillation/same-tokenizer/finetune.py:MTALoss, MTACTKDLoss")
+@CRITERIONS.register("mta")
 class MTA(Criterion):
     """Multi-granularity Text Alignment (MTA) distillation loss.
 
@@ -48,8 +48,6 @@ class MTA(Criterion):
             L_layer = L_span_relational + lambda_token * L_token_cosine
             L_span_relational = MSE(S_intra_sim, T_intra_sim) weighted by span pair importance
             L_token_cosine = mean_tokens(1 - cos(P(H_S), H_T)) weighted by attention weights
-    Source:
-        white-box-distillation/same-tokenizer/finetune.py (MTALoss, MTACTKDLoss)
     """
 
     needs_teacher = True

@@ -17,7 +17,7 @@ def select_segments(
     cumulative_ratio: float = 0.7,
     coherence_max: float = 0.8,
 ) -> list[int]:
-    """Pick important segments from attribution mass (SGL ssft/select.py:31-46)."""
+    """Pick important segments from attribution mass."""
     strengths = [sum_abs / (n**0.5) if n else 0.0 for n, sum_abs, _ in compact]
     ranked = sorted(enumerate(strengths), key=lambda item: -item[1])
     order = [index for index, _ in ranked]
@@ -36,12 +36,11 @@ def select_segments(
 
 
 @TRANSFORMS.register(
-    "select_cumulative_strength", source="SegmentSelectiveSFT-main/Attribution/get_important_segments.py:60-95"
+    "select_cumulative_strength"
 )
 class SelectCumulativeStrength(Transform):
     """SSFT cumulative attribution mass step selection.
 
-    Source: SGL ssft/select.py:31-46.
     """
 
     requires = ("seq.steps", "signals.segment_ig")

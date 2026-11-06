@@ -21,8 +21,7 @@ reg_field("align.impact_w", "token_k", torch.float32, 0.0, "student", "[T_s,2] i
 def boundary_coeffs(c: int, t_off: list, mode: str = "linear") -> tuple[int, int, float]:
     """``(lo, hi, w)`` with ``state(c) = (1-w) P[lo] + w P[hi]`` for ``P = [0; teacher states]`` (indices 0..n).
 
-    Same case analysis, in the same order, as ``_get_teacher_boundary_state``
-    (IMPACT/code/impact_utils.py:665-705) but returns coefficients instead of the interpolated tensor.
+    Computes boundary coefficients for teacher state interpolation. Returns coefficients instead of the interpolated tensor.
     """
     n = len(t_off)
     if n == 0 or c <= t_off[0][0]:
@@ -93,7 +92,7 @@ def _at(c: int, j: int, t_off: list, mode: str) -> tuple[int, int, float]:
 
 
 @ALIGNERS.register(
-    "boundary_interp", source="white-box-distillation/cross-tokenizer/IMPACT/code/impact_utils.py:665-745"
+    "boundary_interp"
 )
 class BoundaryInterp(Aligner):
     """For every student token's boundaries ``(a_i, b_i)``, the teacher prefix-state indices and weight that

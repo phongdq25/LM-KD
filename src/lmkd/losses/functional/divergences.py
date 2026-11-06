@@ -40,7 +40,7 @@ def forward_kl(
     t_logits: torch.Tensor,
     temperature: float = 1.0,
 ) -> torch.Tensor:
-    """DistiLLM ``forward_kl`` (distillm/losses.py:4): cross-entropy form ``-sum_v p_T log q_S``
+    """Forward KL divergence: cross-entropy form ``-sum_v p_T log q_S``
     (teacher entropy omitted: same gradient). Infinite student logits are masked.
     """
     if temperature <= 0.0:
@@ -60,7 +60,7 @@ def reverse_kl(
     t_logits: torch.Tensor,
     temperature: float = 1.0,
 ) -> torch.Tensor:
-    """``sum_v q_S (log q_S - log p_T)`` (distillm/losses.py:14)."""
+    """Reverse KL divergence: ``sum_v q_S (log q_S - log p_T)``."""
     if temperature <= 0.0:
         raise ValueError(f"temperature must be positive, got {temperature}")
     if temperature != 1.0:
@@ -80,7 +80,7 @@ def symmetric_kl(
     lam: float = 0.9,
     temperature: float = 1.0,
 ) -> torch.Tensor:
-    """DistiLLM ``symmetric_kl`` (distillm/losses.py:26): ``(1 - lam) * fkl + lam * rkl``."""
+    """Symmetric KL divergence: ``(1 - lam) * fkl + lam * rkl``."""
     return (1.0 - lam) * forward_kl(s_logits, t_logits, temperature=temperature) + lam * reverse_kl(
         s_logits, t_logits, temperature=temperature
     )
@@ -93,7 +93,7 @@ def js_distance(
     eps: float = 0.0,
     temperature: float = 1.0,
 ) -> torch.Tensor:
-    """Jensen-Shannon distance (distillm/losses.py:32).
+    """Jensen-Shannon distance.
     m = (1 - lam) * p + lam * q; lm = log(m + eps)
     L = lam * sum q(lq - lm) + (1 - lam) * sum p(lp - lm)
     """
@@ -121,7 +121,7 @@ def tv_distance(
     t_logits: torch.Tensor,
     temperature: float = 1.0,
 ) -> torch.Tensor:
-    """Total Variation distance: ``0.5 * sum |p - q|`` (distillm/losses.py:55)."""
+    """Total Variation distance: ``0.5 * sum |p - q|``."""
     if temperature <= 0.0:
         raise ValueError(f"temperature must be positive, got {temperature}")
     if temperature != 1.0:
@@ -140,7 +140,7 @@ def skewed_forward_kl(
     alpha: float = 0.1,
     temperature: float = 1.0,
 ) -> torch.Tensor:
-    """Skewed forward KL (distillm/losses.py:66).
+    """Skewed forward KL divergence.
     m = alpha * p + (1 - alpha) * q; -sum p * log(m)
     """
     if temperature <= 0.0:
@@ -163,7 +163,7 @@ def skewed_reverse_kl(
     alpha: float = 0.1,
     temperature: float = 1.0,
 ) -> torch.Tensor:
-    """Skewed reverse KL (distillm/losses.py:80).
+    """Skewed reverse KL divergence.
     m = (1 - alpha) * p + alpha * q; sum q * (lq - log(m))
     """
     if temperature <= 0.0:
@@ -187,7 +187,7 @@ def csd(
     mode: str = "SS",
     temperature: float = 1.0,
 ) -> torch.Tensor:
-    """Cosine / Surrogate divergence (DistiLLM / CSD distillm/losses.py:97).
+    """Cosine / Surrogate divergence (CSD).
 
     Formula (mode "SS"):
         student_probs = softmax(s_logits / temperature)
@@ -218,7 +218,7 @@ def generalized_jsd(
     clip_mode: str = "elementwise",
     temperature: float = 1.0,
 ) -> torch.Tensor:
-    """Generalized Jensen-Shannon Divergence (TRL / OPSD opsd_trainer.py:382).
+    """Generalized Jensen-Shannon Divergence (OPSD).
     beta=0: KL(T||S) full; beta=1: KL(S||T) full.
     otherwise: mixture distribution with student weight (1 - beta) and teacher weight beta.
     """

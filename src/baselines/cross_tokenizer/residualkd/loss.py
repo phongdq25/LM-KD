@@ -118,7 +118,6 @@ def residual_core(
 
 @CRITERIONS.register(
     "residual_pretrain",
-    source="white-box-distillation/cross-tokenizer/IMPACT/code/distillation_residualkd_pretrain.py:40-92",
 )
 class ResidualPretrain(Criterion):
     """Stage 1 trains only ProjectorTA through the frozen student's detached LM head."""
@@ -161,7 +160,7 @@ class ResidualPretrain(Criterion):
 
 
 @CRITERIONS.register(
-    "residualkd", source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/ResidualKD.py:15-140"
+    "residualkd"
 )
 class ResidualKD(Criterion):
     """Stage 2 combines ordinary CE with CE on teacher-guided residual hidden states.

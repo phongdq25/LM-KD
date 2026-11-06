@@ -17,8 +17,7 @@ reg_field("align.eta_s_for_t", "token", torch.long, -1, "teacher", "student targ
 def align_sequences(tea_seq, stu_seq, student_tokenizer, teacher_tokenizer):
     """Two-pointer exact alignment of two token-string sequences.
 
-    Verbatim port of DSKDv2-main/code/criterions/dual_space_kd_v2_with_exact_token_alignment.py:8-41 (spaces markers
-    ``▁``/``Ġ`` are dropped; ``eos`` strings of both tokenizers match each other)."""
+    Space markers ``▁``/``Ġ`` are dropped; ``eos`` strings of both tokenizers match each other."""
     i, j = 0, 0
     t2s_align, s2t_align = [], []
     history_tea_seq, history_stu_seq = "", ""
@@ -52,11 +51,7 @@ def align_sequences(tea_seq, stu_seq, student_tokenizer, teacher_tokenizer):
     return t2s_align, s2t_align
 
 
-@ALIGNERS.register(
-    "exact_token",
-    source="white-box-distillation/cross-tokenizer/DSKDv2-main/code/criterions/"
-    "dual_space_kd_v2_with_exact_token_alignment.py:8-41,138-150",
-)
+@ALIGNERS.register("exact_token")
 class ExactToken(Aligner):
     """1:1 exact token pairs of the response (ETA), as target positions of both sequences.
 

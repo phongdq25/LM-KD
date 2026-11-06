@@ -18,7 +18,6 @@ from lmkd.core.state import TrainState
 from lmkd.models.logits_view import LogitsView
 
 Pair = tuple[int, int, float]
-_SOURCE = "white-box-distillation/cross-tokenizer/IMPACT/code/impact_utils.py:157-633"
 
 
 @dataclass
@@ -150,9 +149,9 @@ class _ScoreMapper(LayerMapper):
         self._count = int(state.get("count", 0))
 
 
-@LAYER_MAPPERS.register("topk_bi", source=_SOURCE)
+@LAYER_MAPPERS.register("topk_bi")
 class TopKBI(_ScoreMapper):
-    """Top-K block influence, softmax(BI/tau), and relative-depth pairs; IMPACT impact_utils.py:157-176, 619-633."""
+    """Top-K block influence, softmax(BI/tau), and relative-depth pairs."""
 
     needs_all_teacher_layers = True
 
@@ -173,9 +172,9 @@ class TopKBI(_ScoreMapper):
         return compute_bi_scores(inp)
 
 
-@LAYER_MAPPERS.register("topk_ppl", source=_SOURCE)
+@LAYER_MAPPERS.register("topk_ppl")
 class TopKPPL(_ScoreMapper):
-    """Top-K largest teacher layer NLL, as in original PPL ablation (impact_utils.py:297-316); high NLL is intentional."""
+    """Top-K largest teacher layer NLL, as in PPL ablation; high NLL is intentional."""
 
     needs_all_teacher_layers = True
 
@@ -204,25 +203,25 @@ class _FixedMapper(LayerMapper):
         return [_depth_pair(l, inp.L_T, inp.L_S, 1 / len(layers)) for l in layers]
 
 
-@LAYER_MAPPERS.register("first", source=_SOURCE)
+@LAYER_MAPPERS.register("first")
 class First(_FixedMapper):
-    """First K transformer layers with uniform weights; IMPACT impact_utils.py:270-317."""
+    """First K transformer layers with uniform weights."""
 
     def _layers(self, inp: MapperInputs) -> list[int]:
         return list(range(1, min(self.cfg.k, inp.L_T) + 1))
 
 
-@LAYER_MAPPERS.register("last", source=_SOURCE)
+@LAYER_MAPPERS.register("last")
 class Last(_FixedMapper):
-    """Last K transformer layers with uniform weights; IMPACT impact_utils.py:270-317."""
+    """Last K transformer layers with uniform weights."""
 
     def _layers(self, inp: MapperInputs) -> list[int]:
         return list(range(max(1, inp.L_T - self.cfg.k + 1), inp.L_T + 1))
 
 
-@LAYER_MAPPERS.register("random", source=_SOURCE)
+@LAYER_MAPPERS.register("random")
 class Random(_FixedMapper):
-    """Fixed seeded random K-layer subset, as IMPACT impact_utils.py:270-317."""
+    """Fixed seeded random K-layer subset."""
 
     class Config(LayerMapper.Config):
         seed: int | None = None
@@ -234,9 +233,9 @@ class Random(_FixedMapper):
         return sorted(l + 1 for l in random.Random(seed).sample(range(inp.L_T), min(self.cfg.k, inp.L_T)))
 
 
-@LAYER_MAPPERS.register("ratio_1to1", source=_SOURCE)
+@LAYER_MAPPERS.register("ratio_1to1")
 class RatioOneToOne(LayerMapper):
-    """Each student layer m receives teacher ceil(m*L_T/L_S), weight 1/L_S; IMPACT impact_utils.py:603-608."""
+    """Each student layer m receives teacher ceil(m*L_T/L_S), weight 1/L_S."""
 
     def pairs(self, inp: MapperInputs) -> list[Pair]:
         return [(math.ceil(m * inp.L_T / inp.L_S), m, 1 / inp.L_S) for m in range(1, inp.L_S + 1)]
@@ -258,7 +257,7 @@ class BIRatio(_FixedMapper):
 def sample_rail_layers(
     L_T: int, L_S: int, seed: int | None, *, no_random: bool, has_embed: bool, has_final: bool
 ) -> list[int]:
-    """GLMKD RAIL-KD hook sample; IMPACT impact_utils.py:429-484."""
+    """GLMKD RAIL-KD hook sample."""
     if L_T < 1 or L_S < 1:
         return [1]
     n_sample = max(L_S - 1, 1)
@@ -276,9 +275,9 @@ def sample_rail_layers(
     return ([0] if has_embed else []) + layers + ([L_T] if has_final else [])
 
 
-@LAYER_MAPPERS.register("railkd", source=_SOURCE)
+@LAYER_MAPPERS.register("railkd")
 class RailKD(LayerMapper):
-    """RAIL-KD pairs and epoch/iteration resampling; IMPACT impact_utils.py:429-514, 1098-1153.
+    """RAIL-KD pairs and epoch/iteration resampling.
 
     Unlike the original, this alignment is available to every criterion using the mapper.
     """
@@ -332,9 +331,9 @@ class RailKD(LayerMapper):
         self._last_step = int(state.get("last_step", -1))
 
 
-@LAYER_MAPPERS.register("alpkd", source=_SOURCE)
+@LAYER_MAPPERS.register("alpkd")
 class ALPKD(LayerMapper):
-    """ALP-KD softmax over projected teacher CLS dot student CLS; IMPACT impact_utils.py:517-553."""
+    """ALP-KD softmax over projected teacher CLS dot student CLS."""
 
     needs_all_teacher_layers = True
 

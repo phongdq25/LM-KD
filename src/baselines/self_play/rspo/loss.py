@@ -6,7 +6,6 @@ progression against drift or over-optimization:
   L_reg = mean((log pi(y_w) - log pi_base(y_w))^2) + mean((log pi(y_l) - log pi_base(y_l))^2)   [reverse-KL]
   L_RSPO = L_SPPO + reg_coef * L_reg
 
-Source: APSP/RSPO/sppo/trainer_reg.py:850-950
 """
 
 from __future__ import annotations
@@ -118,7 +117,7 @@ def rspo_loss(
     return total_losses, chosen_rewards, rejected_rewards, reg_loss.detach()
 
 
-@CRITERIONS.register("rspo", source="APSP/RSPO/sppo/trainer_reg.py:850")
+@CRITERIONS.register("rspo")
 class RSPO(Criterion):
     """Regularized Self-Play Preference Optimization (RSPO) criterion."""
 

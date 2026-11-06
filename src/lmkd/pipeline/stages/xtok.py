@@ -28,7 +28,7 @@ def tokenizer_fingerprint(tok: Any) -> dict:
     }
 
 
-@STAGES.register("vocab_map", source="white-box-distillation/cross-tokenizer/IMPACT/code/distiller.py:41-60")
+@STAGES.register("vocab_map")
 class VocabMapStage(Stage):
     """Student/teacher vocabulary overlap and id mappings (``VocabMap``), exposed as ``rt.data_ctx.vocab_map``.
 

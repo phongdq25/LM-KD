@@ -1,10 +1,7 @@
 """Numerical parity tests for DWA-KD between LM-KD implementation and MTA/dwa_mta reference."""
 
-from types import SimpleNamespace
-
 import pytest
 import torch
-import torch.nn as nn
 from tests.parity._ref.dwa_ref import (
     ref_calculate_alignment_loss,
     ref_compute_dwa_band_penalty,
@@ -12,18 +9,10 @@ from tests.parity._ref.dwa_ref import (
 )
 
 from baselines.cross_tokenizer.dwa import (
-    DWAKD,
     SoftDTW,
     compute_dwa_band_penalty,
-    pairwise_cosine_distance,
     soft_dtw_divergence,
 )
-from lmkd.core.batch import Batch
-from lmkd.core.state import TrainState
-from lmkd.losses.base import LossContext, ModelPairInfo
-from lmkd.models.logits_view import LogitsView
-from lmkd.models.modules import ModuleRegistry
-from lmkd.teachers.signals import TeacherOutput
 
 
 @pytest.mark.parity

@@ -1,6 +1,5 @@
 """E-SCOT: Entropic Soft Context-aware Optimal Transport criterion.
 
-Source: white-box-distillation/cross-tokenizer/IMPACT/code/criterions/E_SCOT.py:114-280.
 """
 
 from __future__ import annotations
@@ -19,7 +18,7 @@ from lmkd.teachers.signals import TeacherSignalSpec
 
 
 def compute_renyi_entropies(probs: torch.Tensor, V: int, alphas: list[float]) -> torch.Tensor:
-    """Normalized Rényi entropies for specified orders (E_SCOT.py:265-280)."""
+    """Normalized Rényi entropies for specified orders."""
     p = probs.clamp(min=1e-12)
     device = probs.device
     log_V = (
@@ -64,7 +63,6 @@ def _pad_vocab_dim(ss: torch.Tensor, st: torch.Tensor) -> tuple[torch.Tensor, to
 
 @CRITERIONS.register(
     "escot",
-    source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/E_SCOT.py:114-280",
 )
 class ESCOT(Criterion):
     """E-SCOT: Entropic Soft Context-aware Optimal Transport loss.
@@ -77,7 +75,6 @@ class ESCOT(Criterion):
         w_i = lam + (1 - lam) * M_b * q_i / sum_k q_k (stop-grad)
         loss = sum_i sum_{j in N(i)} (w_i / |N(i)|) * d_ij
 
-    Original: IMPACT criterions/E_SCOT.py:114-280.
     """
 
     needs_teacher: ClassVar[bool] = True

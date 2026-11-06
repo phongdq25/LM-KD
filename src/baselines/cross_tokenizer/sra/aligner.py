@@ -17,8 +17,8 @@ reg_field("align.sra_t_idx", "ragged", torch.long, -1, None, "[N,K_t] teacher po
 def longest_common_subsequence(a, b, s_i=0, s_j=0, n_span=1024):
     """Greedy matching of character-boundary positions between two tokenizations.
 
-    Port of IMPACT/code/sra_span_utils.py:15-75 (``N_SPAN`` is the ``n_span`` argument). Compares end offsets, a token
-    with end 0 (BOS / special) resets the word boundary. Returns 1-indexed ``(student_idx+1, teacher_idx+1)`` pairs.
+    Compares end offsets, where a token with end 0 (BOS / special) resets the word boundary.
+    Returns 1-indexed ``(student_idx+1, teacher_idx+1)`` pairs.
     """
     m, n = len(a), len(b)
     i, j = s_i, s_j
@@ -61,9 +61,7 @@ def longest_common_subsequence(a, b, s_i=0, s_j=0, n_span=1024):
 def lcs_segments(
     s_off: list, t_off: list, s_start: int, t_start: int, n_span: int = 1024
 ) -> tuple[list[list[int]], list[list[int]]]:
-    """Segments of one sample: lists of student / teacher positional indices (one list per span).
-
-    Port of the per-sample body of ``prepare_pooler_v2`` (sra_span_utils.py:151-193) with clips ``len(offsets)``."""
+    """Segments of one sample: lists of student / teacher positional indices (one list per span)."""
     marks = [(s_start, t_start)] + longest_common_subsequence(s_off, t_off, s_start, t_start, n_span)
     s_seg: list[list[int]] = []
     t_seg: list[list[int]] = []
@@ -85,7 +83,7 @@ def pad_rows(rows: list[list[int]], pad: int = -1) -> list[list[int]]:
     return [r + [pad] * (width - len(r)) for r in rows]
 
 
-@ALIGNERS.register("lcs_span", source="white-box-distillation/cross-tokenizer/IMPACT/code/sra_span_utils.py:15-200")
+@ALIGNERS.register("lcs_span")
 class LcsSpan(Aligner):
     """Span segments shared by both tokenizations, delimited by common character boundaries (SRA).
 

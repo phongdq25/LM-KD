@@ -1,10 +1,8 @@
 """Embedding distillation criteria (SimCSE Unsupervised, InfoNCE, TAMD, LASD).
 
 Sources:
-- SimCSE Unsup: embedding-distill/TALAS-M-main/trainer.py:113-130
 - Paper: SimCSE: Simple Contrastive Sentence Embedding Framework (Gao et al., EMNLP 2021)
 - InfoNCE: Representation Learning with Contrastive Predictive Coding (van den Oord et al., 2018)
-- TAMD & LASD: TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings
 """
 
 from __future__ import annotations
@@ -31,7 +29,6 @@ __all__ = [
 
 @CRITERIONS.register(
     "simcse_unsupervised",
-    source="embedding-distill/TALAS-M-main/trainer.py:113-130",
     paper="SimCSE: Simple Contrastive Sentence Embedding Framework (Gao et al., EMNLP 2021)",
 )
 class SimCSEUnsup(Criterion):
@@ -43,7 +40,6 @@ class SimCSEUnsup(Criterion):
       scores = (q @ p.T) / tau
       loss = cross_entropy(scores, arange(B))
 
-    Source: embedding-distill/TALAS-M-main/trainer.py:113-130
     Paper: SimCSE: Simple Contrastive Sentence Embedding Framework (Gao et al., EMNLP 2021)
     """
 
@@ -156,7 +152,6 @@ class InfoNCE(Criterion):
 
 @CRITERIONS.register(
     "cosine_to_teacher",
-    source="embedding-distill/TALAS-M-main/trainer.py:87-97",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
 )
 class CosineToTeacher(Criterion):
@@ -164,7 +159,6 @@ class CosineToTeacher(Criterion):
 
     Formula:
       loss = mean_{l in layers} mean_b (1 - cos(proj_l(pool_l(view[0])), t))
-    Source: embedding-distill/TALAS-M-main/trainer.py:87-97
     """
 
     supports_packing = False
@@ -223,14 +217,12 @@ class CosineToTeacher(Criterion):
 
 @CRITERIONS.register(
     "dim_weighted_mse",
-    source="embedding-distill/TALAS-M-main/trainer.py:56-66",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
 )
 class DimWeightedMSE(Criterion):
     """Port of TALAS mse_dim_weight_loss:
     w_d = (std_d(t) / mean(std)) ** power
     loss = mean((s - t)^2 * w)
-    Source: embedding-distill/TALAS-M-main/trainer.py:56-66
     """
 
     supports_packing = False

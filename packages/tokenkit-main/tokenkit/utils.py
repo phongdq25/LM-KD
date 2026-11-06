@@ -1,14 +1,10 @@
 import logging
-from dataclasses import dataclass
 from functools import partial
-from pathlib import Path
 from pprint import pformat
-import copy
 
 import numpy as np
 import pytest
 import regex as re
-from scipy import sparse
 from tqdm.auto import tqdm as raw_tqdm
 from transformers import AutoTokenizer
 
@@ -418,48 +414,13 @@ def print_example_alignments(teacher_tokens_to_chunks, student_tokens_to_chunks,
     print(f"\nExample student tokens (n={student_tokens_to_chunks.sum()}):")
     for chunk_idx in range(n_chunks):
         chunk_tokens = [student_tokens[i] for i in np.where(student_tokens_to_chunks[:, chunk_idx])[0]]
-        
-        bg_color = (40 + chunk_idx % 8) # cycle through colors black (40) to white (47)
+        bg_color = (40 + chunk_idx % 8)  # cycle through colors black (40) to white (47)
         print(f"\033[{bg_color}m" + " ".join(chunk_tokens) + "\033[0m", end=" ")
 
 
 def param_report(params, train_mask):
-    # TODO: update with LoRA support
-    return
-
-    for key, value in params.items():
-
-        @dataclass
-        class ParamInfo:
-            size: int
-            trainable: bool
-
-        def count_params(acc, info):
-            total_count, trainable_count = acc
-
-            return (
-                total_count + info.size,
-                trainable_count + info.size if info.trainable else trainable_count,
-            )
-
-        param_info = jax.tree.map(
-            lambda x, trainable: ParamInfo(size=x.size, trainable=trainable),
-            value,
-            train_mask[key],
-        )
-        if not isinstance(param_info, dict):
-            # make sure reduce works
-            param_info = {"dummy": param_info}
-
-        num_params, num_trainable_params = jax.tree.reduce(
-            count_params,
-            param_info,
-            initializer=(0, 0),
-        )
-
-        # TODO: get rid of prints, and probably make return arg instead
-        print(f"Num {key} params: {num_params}")
-        print(f"Num {key} trainable params: {num_trainable_params}")
+    """Report parameter summary."""
+    pass
 
 
 def get_surface_form_matrix(

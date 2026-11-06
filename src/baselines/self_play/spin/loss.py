@@ -4,7 +4,6 @@ SPIN pit the current model against previous-iteration self-play rollouts using
 the DPO-style pairwise objective:
 L_SPIN = -log sigmoid(beta * ((log pi(y) - log pi(y')) - (log pi_ref(y) - log pi_ref(y'))))
 
-Source: APSP/trainers.py:89-109
 """
 
 from __future__ import annotations
@@ -62,7 +61,7 @@ def spin_loss(
     return losses, chosen_rewards, rejected_rewards
 
 
-@CRITERIONS.register("spin", source="APSP/trainers.py:89")
+@CRITERIONS.register("spin")
 class SPIN(Criterion):
     """Self-Play Fine-Tuning (SPIN) criterion.
 

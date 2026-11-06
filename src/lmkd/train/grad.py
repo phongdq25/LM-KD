@@ -217,13 +217,12 @@ def _warn_frozen_input_embeds(hook: TensorGradHook, rt: Any) -> None:
 
 
 @GRAD_HOOKS.register(
-    "probe", source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/training/transition_trainer.py:54-91"
+    "probe"
 )
 class GradProbe(TensorGradHook):
     """Read ||dL/dh||₂, mean|dL/dh|, and max|dL/dh| without changing the gradient.
 
     Norm and absolute mean are averaged over micro-batches; absolute max is the step maximum.
-    Source: SGL transition_trainer.py:54-91. Per-term probing belongs inside the cooperating
     transition_loss criterion, following SGL's source/hidden hook pattern.
     """
 

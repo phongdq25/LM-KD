@@ -1,7 +1,6 @@
 """RLSD: Reinforcement Learning Self-Distillation - Advantage Modulation Method (STGCA).
 
 Paper: Reinforcement Learning with Self-Distillation
-Source: Self-Distill/RLSD-main (verl/workers/actor/dp_opsd_actor.py:210-269)
 
 Key Method Characteristics:
 1. Self-Teacher Guided Confidence Advantage (STGCA):
@@ -40,7 +39,7 @@ def rlsd_reweight(
     negative_only: bool = False,
     thought_mask: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-    """RLSD sign-dependent detached token weighting (dp_opsd_actor.py:210-269).
+    """RLSD sign-dependent detached token weighting.
 
     Boosts positive tokens when teacher confidence is higher than student;
     penalizes negative tokens when teacher confidence contradicts the student.
@@ -72,7 +71,7 @@ class LambdaSchedule(BaseConfig):
     decay_steps: int = Field(default=0, ge=0)
 
 
-@ADV_TRANSFORMS.register("rlsd_reweight", source="Self-Distill/RLSD-main/verl/workers/actor/dp_opsd_actor.py:210-269")
+@ADV_TRANSFORMS.register("rlsd_reweight")
 class RLSDReweight(Plugin):
     """A * ((1-lambda) + lambda*clip(exp(sign(A)*(logT-logS)))) with detached weights."""
 

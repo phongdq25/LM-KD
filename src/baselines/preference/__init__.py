@@ -8,7 +8,6 @@ Core supported knowledge distillation methods for preference/ranking:
 - ADPA: Adaptive Preference Alignment Distillation
 - CTPD: Contrastive Teacher Preference Distillation
 - DP3O: Direct Preference with Teacher Distillation
-- PBSD: Privileged-state Based Self-Distillation
 """
 
 from __future__ import annotations

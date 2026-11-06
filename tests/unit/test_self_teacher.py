@@ -364,7 +364,7 @@ def test_tinker_matches_original():
     s_view = LogitsView(logits=student_logits)
     student_target_logp = s_view.target_logp(labels)
 
-    # Reference loss from OPSD-main/opsd_trainer.py:705-726
+    # Reference loss from OPSD reference implementation
     ref_loss = opsd_tinker_loss_ref(
         student_log_probs_sampled=student_target_logp,
         teacher_log_probs_sampled=teacher_token_logp,

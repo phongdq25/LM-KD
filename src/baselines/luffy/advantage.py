@@ -1,7 +1,6 @@
 """LUFFY: Learning to Reason Under Off-Policy Guidance - Advantage Estimation.
 
 Paper: LUFFY: Learning to Reason Under Off-Policy Guidance (NeurIPS 2025)
-Source: LUFFY/luffy/verl/verl/mix_src/mix_core_alg.py:12-67 & mix_trainer.py:530-537
 
 Key Method Characteristics:
 1. Split-sample GRPO Advantage (`grpo_split`):
@@ -35,7 +34,6 @@ def compute_grpo_outcome_advantage_split(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute GRPO advantage operating only on Outcome reward with on-policy baseline estimation.
 
-    Source: LUFFY mix_core_alg.py:12-67.
     """
     if token_level_rewards.ndim == 1:
         # Scalar rewards per sequence [B]
@@ -129,7 +127,7 @@ def compute_grpo_outcome_advantage_split(
     return scores_2d, scores_2d
 
 
-@ADVANTAGES.register("grpo_split", source="LUFFY/luffy/verl/verl/mix_src/mix_core_alg.py:12-67", force=True)
+@ADVANTAGES.register("grpo_split", force=True)
 class GRPOSplit(Plugin):
     """GRPO outcome advantage estimator with on-policy baseline centering.
 
@@ -169,7 +167,7 @@ class GRPOSplit(Plugin):
 
 
 @ADV_TRANSFORMS.register(
-    "luffy_prefix_weight", source="LUFFY/luffy/verl/verl/mix_src/mix_trainer.py:530-537", force=True
+    "luffy_prefix_weight", force=True
 )
 class LUFFYPrefixWeight(Plugin):
     """Reweight advantages for off-policy demonstration tokens (alpha) and on-policy tokens (beta)."""

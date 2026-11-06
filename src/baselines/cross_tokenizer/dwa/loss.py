@@ -1,8 +1,5 @@
 """DWA-KD: Dynamic Window Alignment Knowledge Distillation criterion.
 
-Paper / Source:
-    MTA/dwa_mta/code/criterions/dwa_kd.py:8-401.
-
 Formula:
     1. Cross-Model Attention (CMA) Dual-Space Distillation:
        - Uncertainty-guided student entropy weighting w_S and teacher certainty weighting w_T.
@@ -22,16 +19,13 @@ from __future__ import annotations
 
 import functools
 import math
-from typing import Any, ClassVar, Literal
+from typing import Literal
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from baselines.cross_tokenizer.dwa.soft_dtw import (
     SoftDTW,
-    compute_dwa_band_penalty,
-    pairwise_cosine_distance,
     soft_dtw_divergence,
 )
 from baselines.dskd.common import (
@@ -51,7 +45,6 @@ from lmkd.losses.cross_tokenizer._common import (
     vd_divergence,
     view_from_target_hidden,
 )
-from lmkd.models.logits_view import chunked_token_divergence
 from lmkd.models.modules import DSLProjector, ModuleRegistry
 
 
@@ -80,8 +73,8 @@ def _cma_embed_indices(
     return stu_index, tea_index / (tea_index.std() + 1e-9), tea_tgt_emb / (tea_tgt_emb.std() + 1e-9)
 
 
-@CRITERIONS.register("dwa_kd", source="MTA/dwa_mta/code/criterions/dwa_kd.py")
-@CRITERIONS.register("dwa", source="MTA/dwa_mta/code/criterions/dwa_kd.py")
+@CRITERIONS.register("dwa_kd")
+@CRITERIONS.register("dwa")
 class DWAKD(_DualSpaceBase):
     """Dynamic Window Alignment Knowledge Distillation (DWA-KD).
 
@@ -188,11 +181,7 @@ class DWAKD(_DualSpaceBase):
         align_matrix: torch.Tensor | None = None,
         band_warmup_scale: float = 1.0,
     ) -> torch.Tensor:
-        """Calculate pairwise representation Soft-DTW loss across batch sequences.
-
-        Source:
-            MTA/dwa_mta/code/criterions/dwa_kd.py:276-386.
-        """
+        """Calculate pairwise representation Soft-DTW loss across batch sequences."""
         batch_size = student_embs.size(0)
         total_loss = torch.tensor(0.0, device=student_embs.device, requires_grad=True)
         non_empty_pairs = 0

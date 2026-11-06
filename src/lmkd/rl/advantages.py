@@ -36,7 +36,7 @@ def effective_lambda(lam: float, step: int, warmup_steps: int = 0, decay_steps: 
     return lam
 
 
-@ADVANTAGES.register("grpo", source="Self-Distill/RLSD-main/verl/trainer/core_algos.py:176-216")
+@ADVANTAGES.register("grpo")
 class GRPO(Plugin):
     """Group-relative centered rewards, optionally divided by unbiased standard deviation."""
 

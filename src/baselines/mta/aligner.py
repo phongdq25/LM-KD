@@ -10,7 +10,7 @@ from lmkd.core.registry import ALIGNERS
 from lmkd.data.aligners.base import Aligner
 
 
-@ALIGNERS.register("mta_span", source="white-box-distillation/same-tokenizer/finetune.py:MTALoss")
+@ALIGNERS.register("mta_span")
 class MtaSpan(Aligner):
     """Extract linguistic verb-phrase / noun-chunk spans and word spans for MTA.
 

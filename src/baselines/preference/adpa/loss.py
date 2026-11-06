@@ -1,7 +1,6 @@
 """Advantage Distillation Preference Alignment (ADPA).
 
 Maximize the expected teacher-reference token advantage on rejected responses.
-Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:224-248
 """
 
 from __future__ import annotations
@@ -43,14 +42,12 @@ def advantage_expectation_loss(
 
 @CRITERIONS.register(
     "adpa",
-    source="Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:224",
 )
 class ADPA(Criterion):
     """Advantage expectation loss on rejected responses (ADPA).
 
     Chosen response is index 0, rejected is index 1.
     Formula: -mean_{(r,t) rejected, supervised} sum_k q[ids_k] * A_k.
-    Source: Awesome-Human-AI-Alignment-main/src/human_alignment/mechanisms/training/distillation_losses.py:224-248
     """
 
     needs_teacher: ClassVar[bool] = False

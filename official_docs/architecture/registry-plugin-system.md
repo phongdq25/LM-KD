@@ -12,13 +12,16 @@ The registry system is managed in [`lmkd/core/registry.py`](../../src/lmkd/core/
 | Registry Name | Python Object | Description |
 | :--- | :--- | :--- |
 | `CRITERIONS` | `Registry[Criterion]` | Divergence criteria & distillation loss functions |
-| `PRODUCERS` | `Registry[BatchProducer]` | Batch formatting, collation, and prompt masking |
+| `TRANSFORMS` | `Registry[Transform]` | Per-sample data tokenization and alignment transforms |
+| `PRODUCERS` | `Registry[Producer]` | Batch formatting, collation, and prompt masking |
 | `TEACHERS` | `Registry[TeacherProvider]` | Teacher inference providers and logit caches |
 | `ALIGNERS` | `Registry[TokenAligner]` | Cross-tokenizer sequence alignment algorithms |
-| `OPTIMIZERS` | `Registry[Optimizer]` | Standard and experimental parameter optimizers |
-| `ENGINES` | `Registry[Engine]` | Distributed execution engines (DeepSpeed, FSDP) |
+| `GRAD_TRANSFORMS` | `Registry[GradTransform]` | Gradient surgery and clipping transforms |
+| `CALLBACKS` | `Registry[Callback]` | Training lifecycle callbacks and telemetry |
+| `ENGINES` | `Registry[Engine]` | Distributed execution engines (Local, Accelerate, FSDP-2) |
 | `ROLLOUT` | `Registry[RolloutEngine]` | On-policy generation engines (HF, vLLM) |
 | `EVALUATORS` | `Registry[Evaluator]` | Benchmark evaluators and task assessment suites |
+| `GRADERS` | `Registry[Grader]` | Answer grading plugins for generation evaluation |
 
 ---
 
@@ -27,41 +30,47 @@ The registry system is managed in [`lmkd/core/registry.py`](../../src/lmkd/core/
 To implement a new component, inherit from the corresponding base class, define a Pydantic `Config` class for parameter validation, and apply the `@REGISTRY.register` decorator:
 
 ```python
+from __future__ import annotations
+from typing import ClassVar
+import torch
 from lmkd.core.registry import CRITERIONS
 from lmkd.core.plugin import BaseConfig
 from lmkd.losses.base import Criterion, LossContext, LossOutput, LossTerm
 from lmkd.models.forward import FeatureRequest, SideRequest
-import torch
+from lmkd.teachers.signals import TeacherSignalSpec
 
 @CRITERIONS.register(
     "temperature_mse",
     paper="arXiv:2305.xxxx",
-    source="my_project/losses/mse.py",
-    status="stable"
+    source="plugins/mse.py",
+    status="experimental"
 )
 class TemperatureMSELoss(Criterion):
     """Custom temperature-scaled Mean Squared Error between logits."""
+
+    needs_teacher: ClassVar[bool] = True
 
     class Config(BaseConfig):
         temperature: float = 1.0
         weight: float = 1.0
 
-    def __init__(self, config: Config):
-        super().__init__()
-        self.temp = config.temperature
-        self.weight = config.weight
+    def __init__(self, config: Config | None = None):
+        super().__init__(config)
+        self.temp = self.cfg.temperature
+        self.weight = self.cfg.weight
 
     def features(self) -> FeatureRequest:
         return FeatureRequest(
             student=SideRequest(logits="view"),
             teacher=SideRequest(logits="view"),
+            teacher_signal=TeacherSignalSpec(kind="full"),
         )
 
     def forward(self, ctx: LossContext) -> LossOutput:
         s_logits = ctx.student_logits().full() / self.temp
         t_logits = ctx.teacher.logits.full() / self.temp if ctx.teacher else s_logits
         mask = ctx.supervised_mask("student")
-        
+
         diff = (s_logits - t_logits).pow(2).sum(dim=-1)
         weighted_loss = (diff * mask).sum() * self.weight
         return LossOutput(
@@ -112,12 +121,11 @@ To accelerate development, LM-KD provides a built-in code generator that creates
 # Generate a new criterion plugin
 lmkd new criterion my_custom_kd
 
-# Generate a new token aligner
-lmkd new aligner custom_dtw
+# Generate a new data transform
+lmkd new transform custom_token_transform
 ```
 
-The tool generates:
-- The implementation file in `src/lmkd/losses/my_custom_kd.py`.
-- A corresponding unit test in `tests/test_my_custom_kd.py`.
-- A minimal recipe in `recipes/testing/my_custom_kd.yaml`.
-
+The tool automatically generates:
+- The implementation file in `src/lmkd/losses/my_custom_kd.py` (or `src/lmkd/data/transforms/custom_token_transform.py`).
+- A corresponding unit test in `tests/unit/test_my_custom_kd.py`.
+- A minimal recipe in `recipes/experimental/my_custom_kd.yaml` (for criterions).

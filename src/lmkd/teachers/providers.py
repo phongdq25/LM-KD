@@ -257,11 +257,10 @@ class SelfTeacher(TeacherProvider):
             self.policy.load_state_dict(state)
 
 
-@TEACHERS.register("cache", source="integrations/distillation_data.py:77-123,587-631")
+@TEACHERS.register("cache")
 class CacheTeacher(TeacherProvider):
     """Read target-aligned teacher top-k or log-probabilities from batch columns.
 
-    Source: human_alignment/integrations/distillation_data.py:77-123,587-631.
     """
 
     capabilities = frozenset({"topk", "sampled_logp", "seq_logp"})
@@ -444,7 +443,6 @@ class VLLMScorerTeacher(TeacherProvider):
 
 @TEACHERS.register(
     "embedding_store",
-    source="embedding-distill/TALAS-M-main/dataset.py:10-21",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
 )
 class EmbeddingStoreTeacher(TeacherProvider):

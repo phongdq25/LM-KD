@@ -13,36 +13,41 @@ Create a file in your project workspace: `plugins/acw_kl.py`:
 ```python
 # plugins/acw_kl.py
 from __future__ import annotations
+from typing import ClassVar
 import torch
 import torch.nn.functional as F
 from lmkd.core.registry import CRITERIONS
 from lmkd.core.plugin import BaseConfig
 from lmkd.losses.base import Criterion, LossContext, LossOutput, LossTerm
 from lmkd.models.forward import FeatureRequest, SideRequest
+from lmkd.teachers.signals import TeacherSignalSpec
 
 @CRITERIONS.register("acw_kl", paper="UserCustomLoss:2025")
 class AdaptiveConfidenceWeightedKL(Criterion):
     """Adaptive Confidence-Weighted KL Divergence.
-    
+
     Weights teacher KL divergence by the top-1 / top-2 margin of teacher logits.
     """
+
+    needs_teacher: ClassVar[bool] = True
 
     class Config(BaseConfig):
         temperature: float = 1.0
         min_weight: float = 0.1
         margin_scale: float = 2.0
 
-    def __init__(self, config: Config):
-        super().__init__()
-        self.temp = config.temperature
-        self.min_weight = config.min_weight
-        self.margin_scale = config.margin_scale
+    def __init__(self, config: Config | None = None):
+        super().__init__(config)
+        self.temp = self.cfg.temperature
+        self.min_weight = self.cfg.min_weight
+        self.margin_scale = self.cfg.margin_scale
 
     def features(self) -> FeatureRequest:
         # Request target-aligned logits from both student and teacher
         return FeatureRequest(
             student=SideRequest(logits="view"),
             teacher=SideRequest(logits="view"),
+            teacher_signal=TeacherSignalSpec(kind="full"),
         )
 
     def forward(self, ctx: LossContext) -> LossOutput:
@@ -60,7 +65,7 @@ class AdaptiveConfidenceWeightedKL(Criterion):
         p_t = F.softmax(t_logits, dim=-1)
         log_p_s = F.log_softmax(s_logits, dim=-1)
         log_p_t = F.log_softmax(t_logits, dim=-1)
-        
+
         # KL = sum( P_T * (log P_T - log P_S) )
         kl = (p_t * (log_p_t - log_p_s)).sum(dim=-1) * (self.temp ** 2)
 
@@ -118,6 +123,9 @@ data:
     type: hf_dataset
     path: databricks/databricks-dolly-15k
     split: train
+  transforms:
+    - type: tokenize_sft
+      use_chat_template: true
   max_length: 1024
 ```
 
@@ -125,7 +133,13 @@ data:
 
 ## 3. Verify and Train
 
-Run the CLI check to ensure your custom plugin loads and validates correctly:
+You can smoke-test your criterion gradient flow on synthetic tensors without loading real models:
+
+```bash
+lmkd try acw_kl --plugins ./plugins/acw_kl.py
+```
+
+Run the recipe configuration check to ensure your custom plugin loads and validates against the schema:
 
 ```bash
 lmkd check -c experiments/my_experiment.yaml

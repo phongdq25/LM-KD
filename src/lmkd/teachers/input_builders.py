@@ -124,7 +124,7 @@ class PretokenizedInput(TeacherInputBuilder):
         return batch
 
 
-@TEACHER_INPUTS.register("privileged_prompt", source="Self-Distill/OPSD-main/data_collator.py:60-110")
+@TEACHER_INPUTS.register("privileged_prompt")
 class PrivilegedPrompt(TeacherInputBuilder):
     """Teacher sees privileged context (e.g. problem + reference solution) followed by student response tokens."""
 
@@ -164,7 +164,7 @@ class PrivilegedPrompt(TeacherInputBuilder):
 
 
 
-@TEACHER_INPUTS.register("retokenize", source="IMPACT/code/sra_span_utils.py:283-314")
+@TEACHER_INPUTS.register("retokenize")
 class Retokenize(TeacherInputBuilder):
     """Cross-tokenizer: re-tokenize the student text (incl. on-policy rollouts) for the teacher, then run aligners.
 

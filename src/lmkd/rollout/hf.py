@@ -13,7 +13,7 @@ from lmkd.models.adapters import unwrap
 from lmkd.rollout.base import Rollout, RolloutEngine, SamplingSpec, eos_ids
 
 
-@ROLLOUT.register("hf", source="white-box-distillation/same-tokenizer/distillm/sampler.py")
+@ROLLOUT.register("hf")
 class HFRollout(RolloutEngine):
     """transformers.generate with manual left padding; token ids in, token ids out.
 

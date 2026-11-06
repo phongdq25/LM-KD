@@ -1,6 +1,6 @@
 """Standard reasoning and math evaluation benchmarks.
 
-Ported from SGL (SpectralGuidedLearning/src/sgl/eval/benchmarks.py:24-100).
+Benchmark loading and evaluation routines.
 Supported benchmark sets: aime24, aime25, math500, olympiadbench, amc12, amc23, minerva, gpqa.
 """
 
@@ -183,7 +183,7 @@ BENCHMARK_LOADERS = {
 }
 
 
-@SOURCES.register("benchmark", source="Long-CoT-Disitllation/SpectralGuidedLearning/src/sgl/eval/benchmarks.py:24-100")
+@SOURCES.register("benchmark")
 class BenchmarkSource(Source):
     """Reasoning and math evaluation benchmarks source."""
 

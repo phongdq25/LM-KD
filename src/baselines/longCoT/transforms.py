@@ -41,11 +41,10 @@ FIELDS.register(FieldSpec("signals.step_gain", "meta"))
 FIELDS.register(FieldSpec("signals.segment_ig", "meta"))
 
 
-@TRANSFORMS.register("render_cot", source="SpectralGuidedLearning/src/sgl/data/prepare.py:85-213")
+@TRANSFORMS.register("render_cot")
 class RenderCoT(Transform):
     """Render prompt and response texts with thinking markers and templates.
 
-    Source: SGL data/prepare.py:32-101.
     """
 
     requires = ()
@@ -102,11 +101,10 @@ class RenderCoT(Transform):
         return sample
 
 
-@TRANSFORMS.register("tokenize_cot", source="SpectralGuidedLearning/src/sgl/data/prepare.py:104-145")
+@TRANSFORMS.register("tokenize_cot")
 class TokenizeCoT(Transform):
     """Tokenize prompt and response with offsets, target labels, and stop tokens.
 
-    Source: SGL data/prepare.py:104-145.
     """
 
     requires = ("meta.prompt_text", "meta.response_text")
@@ -158,11 +156,10 @@ class TokenizeCoT(Transform):
         return out
 
 
-@TRANSFORMS.register("segment", source="SpectralGuidedLearning/src/sgl/segment/sentence.py:63-88")
+@TRANSFORMS.register("segment")
 class Segment(Transform):
     """Segment response into reasoning steps using a lossless segmenter.
 
-    Source: SGL segment/sentence.py:54-88.
     """
 
     requires = ("seq.response_span", "meta.token_starts", "meta.response_text")

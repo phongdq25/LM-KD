@@ -52,11 +52,11 @@ def _span(sample: dict) -> tuple[int, int]:
     return start, end
 
 
-@STAGES.register("spectral_capture", source="SGL/src/sgl/signals/capture.py:80-224")
+@STAGES.register("spectral_capture")
 class SpectralCapture(Stage):
     """Capture per-step leverage and entropy from closed-form CE gradients.
 
-    G_t = Wᵀ(softmax(Wh[t-1]) − onehot(y_t)); source: SGL signals/capture.py:80-224.
+    G_t = Wᵀ(softmax(Wh[t-1]) − onehot(y_t)).
     """
 
     inputs: ClassVar[dict[str, str]] = {"data": "dataset"}
@@ -153,11 +153,11 @@ class SpectralCapture(Stage):
         return {"n": len(rows), "signals": ["step_strength", "step_entropy"]}
 
 
-@STAGES.register("answer_gain", source="SGL/src/sgl/signals/answer_gain.py:33-90")
+@STAGES.register("answer_gain")
 class AnswerGain(Stage):
     """Measure each step's change in final-answer log probability.
 
-    gain_k = log p(answer|prefix_k) − log p(answer|prefix_{k−1}); source: SGL answer_gain.py:33-90.
+    gain_k = log p(answer|prefix_k) − log p(answer|prefix_{k−1}).
     """
 
     inputs: ClassVar[dict[str, str]] = {"data": "dataset"}
@@ -344,11 +344,10 @@ def _run_with_missing(rows: list[dict], transforms: list[Transform], ctx: DataCo
     return current
 
 
-@STAGES.register("build_weights", source="SGL/src/sgl/allocation/build.py:144-355")
+@STAGES.register("build_weights")
 class BuildWeights(Stage):
     """Join offline signals by id and run selection/allocation transforms.
 
-    Source: SGL allocation/build.py:144-355 and selection/build_masks.py:125-194.
     """
 
     inputs: ClassVar[dict[str, str]] = {"data": "dataset"}
@@ -445,7 +444,7 @@ class BuildWeights(Stage):
         return load_samples_dir(art.path)
 
 
-@STAGES.register("sgl_spectral", source="SpectralGuidedLearning/src/sgl")
+@STAGES.register("sgl_spectral")
 class SGLSpectralStage(Stage):
     """Self-contained end-to-end Spectral Guided Learning (SGL-Spectral) stage.
 

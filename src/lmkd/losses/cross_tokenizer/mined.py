@@ -1,6 +1,5 @@
 """MinED: DTW-aligned cross-tokenizer KD with vocab mapping and one-hot fallback.
 
-Source: white-box-distillation/cross-tokenizer/IMPACT/code/criterions/MinED.py:22-210.
 """
 
 from __future__ import annotations
@@ -57,7 +56,6 @@ def _compute_mined_chunk(
 
 @CRITERIONS.register(
     "mined_fkl",
-    source="white-box-distillation/cross-tokenizer/IMPACT/code/criterions/MinED.py:22-210",
 )
 class MinEDFKL(Criterion):
     """MinED: FKL on DTW-aligned positions with vocab-mapped teacher logits.
@@ -68,7 +66,6 @@ class MinEDFKL(Criterion):
         Unaligned / unmapped positions use ground-truth one-hot pseudo-logits.
         kd = Forward_KL(student_logits, mapped_teacher_logits; T)
 
-    Original: IMPACT criterions/MinED.py:22-210.
     """
 
     needs_teacher: ClassVar[bool] = True

@@ -137,7 +137,7 @@ class HFAutoAdapter(Plugin):
 
     @torch.no_grad()
     def last_row_attention(self, model, layer, hidden_in, attention_mask_2d, position_ids):
-        """Sum heads of softmax(q_last K.T), detached (SRA sra_span_utils.py:256).
+        """Sum heads of softmax(q_last K.T), detached.
 
         Supports GPT-2 and LLaMA/Qwen2/Qwen3/Mistral without full attention matrices.
         """

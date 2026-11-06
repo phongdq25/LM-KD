@@ -17,8 +17,7 @@ reg_field("align.chunk_t", "token", torch.long, -1, "teacher", "chunk id of teac
 
 
 def load_pair_data(path: str) -> tuple[Any, Any, None, None]:
-    """Bias matrices of the unbiased alignment (``bias1_matrix.npz`` / ``bias2_matrix.npz``, IMPACT
-    distillation_alm.py:128-143)."""
+    """Bias matrices of the unbiased alignment (``bias1_matrix.npz`` / ``bias2_matrix.npz``)."""
     from scipy import sparse  # extra eval-emb
 
     base = Path(path)
@@ -42,7 +41,6 @@ def chunk_ids(matrix: np.ndarray, length: int) -> list[int]:
 
 @ALIGNERS.register(
     "tokenkit_chunk",
-    source="white-box-distillation/cross-tokenizer/IMPACT/code/distillation_alm.py:184-276",
     extras=("tokenkit",),
 )
 class TokenkitChunk(Aligner):
@@ -52,7 +50,7 @@ class TokenkitChunk(Aligner):
     position, the single chunk it belongs to (-1 if none). ``exclude_last`` (default) runs tokenkit on ``ids[:-1]``
     like ALMCollator (the last token, usually EOS, is never an input) and sets ``chunk_*[L-1] = -1``, so every
     positional ``p`` in a chunk has its logits row ``p+1``. Position type: positional.
-    Needs tokenkit (``pip install -e IMPACT/tokenkit-main``) and byteify specs such as ``"gpt2:source=gpt2"``.
+    Needs tokenkit (``pip install -e packages/tokenkit-main``) and byteify specs such as ``"gpt2:source=gpt2"``.
     """
 
     requires = IDS

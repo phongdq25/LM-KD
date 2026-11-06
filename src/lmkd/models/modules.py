@@ -445,7 +445,7 @@ class MLPProjector(nn.Module):
         return self.net(x)
 
 
-@PROJECTORS.register("dsl", source="white-box-distillation/cross-tokenizer/IMPACT/code/distiller.py:98-139")
+@PROJECTORS.register("dsl")
 class DSLProjector(nn.Module):
     """IMPACT projector DSL (e.g. '2s-2t', 's-p-relu-t'). Parses structured layer specs."""
 

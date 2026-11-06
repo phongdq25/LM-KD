@@ -1,6 +1,5 @@
 """EMO: Embedding Model Distillation via Intra-Model Relation and Optimal Transport Alignments.
 
-Source: embedding-distill/emo-unsup-simcse.ipynb:cells 13, 14, 18
 Paper: EMO: Embedding Model Distillation via Intra-Model Relation and Optimal Transport Alignments (EMNLP 2024)
 
 Key components:
@@ -16,7 +15,6 @@ from __future__ import annotations
 import math
 from typing import Any, ClassVar
 
-import editdistance
 import torch
 import torch.nn as nn
 
@@ -30,7 +28,6 @@ from lmkd.models.modules import ModuleRegistry
 class CKALoss(nn.Module):
     """Linear Centered Kernel Alignment loss.
 
-    Source: embedding-distill/emo-unsup-simcse.ipynb:cell 13
     """
 
     def __init__(self, eps: float = 1e-8) -> None:
@@ -61,11 +58,15 @@ def align_tokens(
 ) -> dict[str, str]:
     """Align tokens between teacher and student using minimal edit distance.
 
-    Source: embedding-distill/emo-unsup-simcse.ipynb:cell 14
     """
     teacher_to_student: dict[str, str] = {}
     if not teacher_tokens or not student_tokens:
         return teacher_to_student
+
+    try:
+        import editdistance
+    except ImportError as e:
+        raise ImportError("EMO requires editdistance: pip install editdistance") from e
 
     if teacher_special in teacher_tokens and student_special in student_tokens:
         teacher_to_student[teacher_special] = student_special
@@ -97,7 +98,6 @@ def build_reciprocal_mapping_from_token_lists(
 ) -> dict[str, str]:
     """Build mutual/reciprocal token alignment (t -> s and s -> t match).
 
-    Source: embedding-distill/emo-unsup-simcse.ipynb:cell 13
     """
     teacher_to_student = align_tokens(teacher_tokens, student_tokens, teacher_special, student_special)
     student_to_teacher = align_tokens(student_tokens, teacher_tokens, student_special, teacher_special)
@@ -112,7 +112,6 @@ def build_reciprocal_mapping_from_token_lists(
 def compute_token_importance(attention_weights: torch.Tensor, tokens: list[str]) -> torch.Tensor:
     """Compute token importance based on received attention centrality.
 
-    Source: embedding-distill/emo-unsup-simcse.ipynb:cell 14
     """
     if len(attention_weights.shape) == 3:
         avg_attention = attention_weights.mean(dim=0)
@@ -133,7 +132,6 @@ def project_importance(
 ) -> torch.Tensor:
     """Project teacher token importance vector onto student token positions.
 
-    Source: embedding-distill/emo-unsup-simcse.ipynb:cell 14
     """
     device = teacher_importance.device
     student_importance = torch.zeros(len(student_tokens), device=device)
@@ -160,7 +158,6 @@ def project_importance(
 def pairwise_attention_distance(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """Pairwise attention distance matrix between tokens: 1.0 - softmax(x y^T / sqrt(d)).
 
-    Source: embedding-distill/emo-unsup-simcse.ipynb:cell 14
     """
     d = x.shape[1]
     sim_mt = torch.mm(x, y.transpose(0, 1)) / math.sqrt(d)
@@ -179,7 +176,6 @@ def sinkhorn(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Sinkhorn Optimal Transport solver.
 
-    Source: embedding-distill/emo-unsup-simcse.ipynb:cell 14
     """
     m, n = cost_matrix.shape
     device = cost_matrix.device
@@ -248,7 +244,6 @@ def compute_ot_loss(
 ) -> torch.Tensor:
     """Compute EMO optimal transport loss over a batch.
 
-    Source: embedding-distill/emo-unsup-simcse.ipynb:cell 14
     """
     device = teacher_last.device
     batch_size = teacher_last.size(0)
@@ -324,7 +319,6 @@ def compute_att_loss_2(
 ) -> torch.Tensor:
     """Compute EMO attention CKA distillation loss on salient reciprocal tokens.
 
-    Source: embedding-distill/emo-unsup-simcse.ipynb:cell 13
     """
     if device is None:
         device = input_ids_stu.device
@@ -444,7 +438,6 @@ def compute_att_loss_2(
 
 @CRITERIONS.register(
     "emo",
-    source="embedding-distill/emo-unsup-simcse.ipynb:cells 13,14,18",
     paper="EMO: Embedding Model Distillation via Intra-Model Relation and Optimal Transport Alignments",
 )
 class EMO(Criterion):
@@ -589,7 +582,6 @@ class EMO(Criterion):
 
 @CRITERIONS.register(
     "emo_kd",
-    source="embedding-distill/emo-unsup-simcse.ipynb:cells 13,14,18",
     paper="EMO: Embedding Model Distillation via Intra-Model Relation and Optimal Transport Alignments",
 )
 class EMOKD(EMO):

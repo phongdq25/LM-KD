@@ -1,6 +1,5 @@
 """On-Policy Self-Distillation (OPSD) losses.
 
-Source: Self-Distill/OPSD-main (opsd_trainer.py)
 Supports:
 - Generalized Jensen-Shannon Divergence (GJSD) with optional token clipping
 - Sampled-token reverse-KL policy gradient (Tinker variant)
@@ -41,8 +40,8 @@ def opsd_tinker_loss(
     return loss, adv_mean
 
 
-@CRITERIONS.register("tinker_rkl", source="Self-Distill/OPSD-main/opsd_trainer.py:705-726")
-@CRITERIONS.register("opsd_tinker", source="Self-Distill/OPSD-main/opsd_trainer.py:705-726")
+@CRITERIONS.register("tinker_rkl")
+@CRITERIONS.register("opsd_tinker")
 class TinkerRKL(Criterion):
     """Sampled-token reverse-KL policy gradient (Thinking Machines / OPSD).
 
@@ -80,7 +79,7 @@ class TinkerRKL(Criterion):
         return LossOutput({"pg": loss_term}, metrics={"adv_mean": adv_mean})
 
 
-@CRITERIONS.register("opsd", source="Self-Distill/OPSD-main/opsd_trainer.py:382")
+@CRITERIONS.register("opsd")
 class OPSD(Criterion):
     """On-Policy Self-Distillation (OPSD) criterion via Generalized JSD."""
 

@@ -177,8 +177,8 @@ def vd_divergence(
     skew_lambda: float = 0.1,
     adaptive_alpha: float = 0.5,
 ) -> torch.Tensor:
-    """Per-token ``[B,T]`` port of IMPACT's ``VariousDivergence`` (IMPACT/code/criterions/various_divergence.py:102-307,
-    ``reduction='none'``); ``name`` in forward_kl | reverse_kl | adaptive_kl | skewed_forward_kl | skewed_reverse_kl |
+    """Per-token ``[B,T]`` implementation of ``VariousDivergence`` (``reduction='none'``);
+    ``name`` in forward_kl | reverse_kl | adaptive_kl | skewed_forward_kl | skewed_reverse_kl |
     js_divergence.
 
     NOT the same as ``losses/functional/divergences.py`` (distillm): here ``forward_kl`` is the true KL (includes

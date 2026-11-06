@@ -1,6 +1,5 @@
 """Embedding distillation criteria for TALAS baseline.
 
-Source: embedding-distill/TALAS-M-main/trainer.py:68-77,99-103
 Paper: TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings
 """
 
@@ -19,7 +18,6 @@ from lmkd.models.forward import FeatureRequest, SideRequest
 
 @CRITERIONS.register(
     "lasd",
-    source="embedding-distill/TALAS-M-main/trainer.py:68-77,99-103",
     paper="TALAS: Task-Agnostic Layer-Adaptive Self-Distillation for Sentence Embeddings",
 )
 class LASD(Criterion):
@@ -29,7 +27,6 @@ class LASD(Criterion):
       e_i = normalize(pool_i(view[0]), dim=-1)
       S_i = e_i @ e_i.T
       loss = mean_{i=start}^{L-1} MSE(S_i, S_{i+1})
-    Source: embedding-distill/TALAS-M-main/trainer.py:68-77,99-103
     """
 
     supports_packing = False

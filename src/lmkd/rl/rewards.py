@@ -88,7 +88,7 @@ class Verifier(Plugin):
             raise ValueError("verifier requires equally sized prompts, responses and metadata")
 
 
-@REWARDS.register("math_verify", source="Self-Distill/OPSD-main/grpo_train.py:87-114")
+@REWARDS.register("math_verify")
 class MathVerify(Verifier):
     """Boxed answer correctness with mathematical equivalence and whitespace string fallback."""
 
@@ -122,7 +122,7 @@ class MathVerify(Verifier):
         return results
 
 
-@REWARDS.register("mcq", source="Self-Distill/SDPO-main/verl/utils/reward_score/feedback/mcq.py")
+@REWARDS.register("mcq")
 class MCQ(Verifier):
     """Sparse multiple-choice correctness from boxed letters or the final Answer: X."""
 
@@ -180,7 +180,7 @@ def _run_code(code, test, timeout_s, memory_mb):
                 os.killpg(proc.pid, signal.SIGKILL)
 
 
-@REWARDS.register("code_sandbox", source="Self-Distill/SDPO-main/verl/utils/reward_score/feedback/code.py:820-870")
+@REWARDS.register("code_sandbox")
 class CodeSandbox(Verifier):
     """Sparse code test rewards with resource limits, denied network and writes confined to a temporary directory.
 
