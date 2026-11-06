@@ -1,0 +1,95 @@
+name: emo
+models:
+  student:
+    path: nreimers/MiniLMv2-L6-H384-distilled-from-BERT-Large
+    task: encoder
+    dtype: fp32
+    tokenizer: bert-base-uncased
+    trainable: true
+    attn_implementation: eager
+  teacher:
+    path: BAAI/bge-m3
+    task: encoder
+    dtype: fp32
+    trainable: false
+    attn_implementation: eager
+data:
+  train:
+    type: csv
+    path: datasets/embedding_data/train_full.csv
+  transforms:
+  - type: tokenize_text
+    teacher: true
+    keep_text: true
+  max_length: 256
+teacher:
+  provider: hf_frozen
+  input: pretokenized
+producer:
+  type: dataset
+algorithm: standard
+step:
+  type: standard
+loss:
+  aggregator: weighted_sum
+  terms:
+  - criterion: simcse_unsupervised
+    weight: 0.5
+    params:
+      temperature: 0.07
+      pooler: cls
+  - criterion: emo
+    weight: 0.5
+    params:
+      w_att: 0.1
+      w_ot: 1.0
+      k_layers: 1
+      sinkhorn_alpha: 0.1
+optim:
+  lr: 2.0e-05
+  weight_decay: 0.01
+  groups:
+  - name: projector
+    match:
+      owner: modules
+    lr: 2.0e-05
+    weight_decay: 0.01
+  - name: default
+    match: {}
+  optimizers:
+    adamw:
+      type: adamw
+  schedulers:
+  - type: cosine
+    warmup_ratio: 0.06
+grad:
+  clip_norm: 1.0
+engine:
+  type: local
+  device: auto
+  mixed_precision: fp32
+train:
+  output_dir: outputs/emo
+  epochs: 5
+  batch_size: 32
+  micro_batch_size: 32
+  seed: 42
+  log_every: 10
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev/avg
+  mode: max
+eval:
+- type: embedding_mteb
+  when: epoch
+  split: validation
+  name: dev
+- type: embedding_mteb
+  when: end
+  split: test
+  name: test

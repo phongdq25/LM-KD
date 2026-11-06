@@ -1,0 +1,44 @@
+# S-SPPO: Semantic-Calibrated SPPO
+name: s_sppo_self_play
+models:
+  student: {path: Qwen/Qwen2.5-1.5B, dtype: bf16}
+  teacher: {path: Qwen/Qwen2.5-1.5B, dtype: bf16}
+data:
+  max_length: 1024
+  eval:
+    type: hf_dataset
+    path: UCLA-AGI/SPIN_iter0
+    split: test
+    limit: 200
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: hf_dataset, path: UCLA-AGI/SPIN_iter0, split: train}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
+    dataset: true
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: hf_frozen, input: same}
+loss:
+  terms:
+    - {criterion: s_sppo, weight: 1.0, params: {beta: 0.001, lam: 1.0}}
+train: {output_dir: outputs/self_play/s_sppo, batch_size: 16, micro_batch_size: 2}
+optim: {lr: 5e-7}
+callbacks:
+  - type: evaluate
+    every: epoch
+    load_best_at_end: true
+  - type: checkpoint
+    every: epoch
+    keep_best: 1
+    metric: dev_loss/loss
+    mode: min
+eval:
+  - type: dev_loss
+    when: epoch
+    data:
+      type: hf_dataset
+      path: UCLA-AGI/SPIN_iter0
+      split: test
+      limit: 200
+

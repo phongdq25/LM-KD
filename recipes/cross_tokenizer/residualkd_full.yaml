@@ -1,0 +1,45 @@
+_base_: residualkd_stage2.yaml
+name: residualkd_full
+pipeline:
+- stage: train_recipe
+  name: stage1
+  recipe: recipes/cross_tokenizer/residualkd_stage1.yaml
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev_loss/loss
+  mode: min
+eval:
+- type: dev_loss
+  when: epoch
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/dolly/dev.jsonl
+- type: generation_rouge
+  name: dolly
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/dolly/valid.jsonl
+  when: end
+- type: generation_rouge
+  name: self_inst
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/self-inst/valid.jsonl
+  when: end
+- type: generation_rouge
+  name: vicuna
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/vicuna/valid.jsonl
+  when: end
+- type: generation_rouge
+  name: sinst
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/sinst/11_/valid.jsonl
+  when: end

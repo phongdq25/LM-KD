@@ -1,0 +1,68 @@
+name: vpd_pairwise
+models:
+  student:
+    path: meta-llama/Llama-3.2-1B-Instruct
+    dtype: bf16
+data:
+  max_length: 1024
+  eval:
+    type: hf_dataset
+    path: HuggingFaceH4/ultrafeedback_binarized
+    split: test_prefs
+    limit: 200
+pipeline:
+- stage: prepare_dataset
+  name: raw
+  source:
+    type: jsonl
+    type: hf_dataset
+    path: HuggingFaceH4/ultrafeedback_binarized
+    split: train_prefs
+- stage: score
+  name: scores
+  inputs:
+    data: raw
+  mode: pairwise
+  model: meta-llama/Llama-3.1-8B-Instruct
+  out_field: teacher_scores
+- stage: prepare_dataset
+  name: prepare
+  source:
+    type: artifact_records
+    node: scores
+  transforms:
+  - type: tokenize_listwise
+    max_prompt_length: 512
+    max_length: 1024
+  dataset: true
+producer:
+  type: listwise
+  pad_groups_to: 2
+teacher:
+  provider: none
+  input: same
+loss:
+  terms:
+  - criterion: vpd
+    weight: 1.0
+train:
+  output_dir: outputs/preference/vpd_pairwise
+  batch_size: 8
+  micro_batch_size: 4
+callbacks:
+  - type: evaluate
+    every: epoch
+    load_best_at_end: true
+  - type: checkpoint
+    every: epoch
+    keep_best: 1
+    metric: dev_loss/loss
+    mode: min
+eval:
+  - type: dev_loss
+    when: epoch
+    data:
+      type: hf_dataset
+      path: HuggingFaceH4/ultrafeedback_binarized
+      split: test_prefs
+      limit: 200

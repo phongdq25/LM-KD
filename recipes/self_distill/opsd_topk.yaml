@@ -1,0 +1,46 @@
+_base_: opsd.yaml
+name: opsd_topk
+loss:
+  terms:
+  - criterion: topk_kd
+    alias: opsd
+    params:
+      alpha: 0.0
+      k: 100
+      support: teacher
+      tail: renorm
+      token_clip: 0.05
+train:
+  output_dir: outputs/opsd_topk
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev_loss/loss
+  mode: min
+eval:
+- type: dev_loss
+  when: epoch
+  data:
+    type: hf_dataset
+    path: open-thoughts/OpenThoughts-114k
+    name: metadata
+    split: train
+    filter:
+      domain: math
+    limit: 100
+- type: math_passk
+  name: math
+  when: end
+  benchmarks:
+  - aime25
+  - aime26
+  - hmmt25
+  n: 8
+  ks:
+  - 1
+  - 3
+  grader: math_verify

@@ -1,0 +1,30 @@
+# Standard Instruction Distillation evaluation (Dolly dev loss + 4 text generation benchmarks: Dolly, Self-Instruct, Vicuna, S-NI).
+eval:
+  - type: dev_loss
+    when: epoch
+    data: {type: jsonl, path: datasets/same_cross_tokenizer_data/dolly/dev.jsonl}
+  - type: generation_rouge
+    when: end
+    name: dolly
+    data: {type: jsonl, path: datasets/same_cross_tokenizer_data/dolly/valid.jsonl}
+  - type: generation_rouge
+    when: end
+    name: self_inst
+    data: {type: jsonl, path: datasets/same_cross_tokenizer_data/self-inst/valid.jsonl}
+  - type: generation_rouge
+    when: end
+    name: vicuna
+    data: {type: jsonl, path: datasets/same_cross_tokenizer_data/vicuna/valid.jsonl}
+  - type: generation_rouge
+    when: end
+    name: sinst
+    data: {type: jsonl, path: datasets/same_cross_tokenizer_data/sinst/11_/valid.jsonl}
+callbacks:
+  - type: evaluate
+    every: epoch
+    load_best_at_end: true
+  - type: checkpoint
+    every: epoch
+    keep_best: 1
+    metric: dev_loss/loss
+    mode: min

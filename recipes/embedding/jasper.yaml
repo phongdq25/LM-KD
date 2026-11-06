@@ -1,0 +1,39 @@
+_base_: jasper_stage2.yaml
+name: jasper
+pipeline:
+- stage: prepare_dataset
+  name: data
+  source:
+    type: csv
+    path: datasets/embedding_data/train_full.csv
+  transforms:
+  - type: tokenize_text
+    keep_text: true
+  dataset: true
+- stage: embed_teacher
+  name: teacher_emb
+  inputs:
+    data: data
+  model: Qwen/Qwen3-Embedding-0.6B
+  pooling: last
+- stage: train_recipe
+  name: stage1
+  recipe: recipes/embedding/jasper_stage1.yaml
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev/avg
+  mode: max
+eval:
+- type: embedding_mteb
+  when: epoch
+  split: validation
+  name: dev
+- type: embedding_mteb
+  when: end
+  split: test
+  name: test

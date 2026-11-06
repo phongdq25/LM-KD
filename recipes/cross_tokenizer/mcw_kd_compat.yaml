@@ -1,0 +1,77 @@
+_base_: mcw_kd.yaml
+name: mcw_kd_compat_gpt2_from_qwen
+loss:
+  terms:
+  - criterion: nll
+    weight: 1.0
+  - criterion: dskd_cma
+    alias: cma
+    weight: 5.0
+    params:
+      temperature: 3.0
+      kd_objective: forward_kl
+  - criterion: ot_logits
+    weight: 1.0
+    params:
+      top_k_vocab: 400
+      compat_untrained_aux: true
+      update_cost_weights: false
+  - criterion: ot_hidden
+    weight: 1.0
+    params:
+      compat_untrained_aux: true
+      update_cost_weights: false
+optim:
+  groups:
+  - name: mcw_untrained
+    match:
+      group: mcw_untrained
+    lr: 0.0
+    weight_decay: 0.0
+  - name: projector
+    match:
+      group: projector
+    lr: 0.001
+  - name: default
+    match: {}
+train:
+  output_dir: outputs/mcw_kd_compat
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev_loss/loss
+  mode: min
+eval:
+- type: dev_loss
+  when: epoch
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/dolly/dev.jsonl
+- type: generation_rouge
+  name: dolly
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/dolly/valid.jsonl
+  when: end
+- type: generation_rouge
+  name: self_inst
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/self-inst/valid.jsonl
+  when: end
+- type: generation_rouge
+  name: vicuna
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/vicuna/valid.jsonl
+  when: end
+- type: generation_rouge
+  name: sinst
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/sinst/11_/valid.jsonl
+  when: end

@@ -1,0 +1,81 @@
+# Stage 1: Warmup SFT on UltraChat200k to produce base checkpoint M_0 (APSP/sft.py)
+# Reference: Section 7 of EXPERIMENTS_OFFICIAL_DOC.md and APSP repository
+name: self_play_sft_warmup
+models:
+  student:
+    path: Qwen/Qwen2.5-1.5B
+    dtype: bf16
+    task: causal_lm
+    gradient_checkpointing: true
+data:
+  train:
+    type: hf_dataset
+    path: HuggingFaceH4/ultrachat_200k
+    split: train_sft
+  eval:
+    type: hf_dataset
+    path: HuggingFaceH4/ultrachat_200k
+    split: test_sft
+    limit: 1000
+  transforms:
+    - type: tokenize_sft
+      use_chat_template: true
+  max_length: 2048
+  padding: dynamic
+  pad_to_multiple_of: 8
+producer:
+  type: dataset
+algorithm: standard
+step:
+  type: standard
+loss:
+  terms:
+    - criterion: nll
+optim:
+  lr: 2.0e-05
+  weight_decay: 0.0
+  groups:
+    - name: no_decay
+      match:
+        ndim_le: 1
+      weight_decay: 0.0
+    - name: default
+      match: {}
+  optimizers:
+    default:
+      type: adamw
+  schedulers:
+    - type: cosine
+      warmup_ratio: 0.1
+      min_lr_ratio: 0.0
+grad:
+  clip_norm: 1.0
+engine:
+  type: local
+  device: auto
+  mixed_precision: bf16
+train:
+  output_dir: outputs/self_play/sft_warmup
+  epochs: 1.0
+  batch_size: 32
+  micro_batch_size: 2
+  seed: 42
+  log_every: 10
+callbacks:
+  - type: evaluate
+    every: epoch
+    load_best_at_end: true
+  - type: checkpoint
+    every: epoch
+    keep_best: 1
+    metric: dev_loss/loss
+    mode: min
+eval:
+  - type: dev_loss
+    when: epoch
+    data:
+      type: hf_dataset
+      path: HuggingFaceH4/ultrachat_200k
+      split: test_sft
+      limit: 1000
+
