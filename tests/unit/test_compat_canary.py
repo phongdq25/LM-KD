@@ -7,6 +7,7 @@ When a pinned library is upgraded and one of these fails, the failure names the 
 import importlib
 import inspect
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -18,13 +19,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _pins() -> dict[str, str]:
-    deps = re.findall(r'^\s*"([A-Za-z0-9_.\[\]-]+)==([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M)
-    return {re.sub(r"\[.*", "", n).lower(): v for n, v in deps}
+    deps = re.findall(r'^\s*"([A-Za-z0-9_.\[\]-]+)==([^";]+)', (ROOT / "pyproject.toml").read_text(), re.M)
+    return {re.sub(r"\[.*", "", n).lower(): v.strip() for n, v in deps}
 
 
 # ------------------------------------------------------------------------------ versions
 @pytest.mark.parametrize("lib", PINNED_LIBRARIES)
 def test_installed_version_matches_pin(lib):
+    if sys.platform == "darwin" and lib in ("deepspeed", "vllm"):
+        pytest.skip(f"{lib} is not supported on macOS")
     pins = _pins()
     assert lib in pins, f"{lib} is no longer pinned in pyproject.toml; update PINNED_LIBRARIES"
     got = installed_versions()[lib]
