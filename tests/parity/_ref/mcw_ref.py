@@ -1,4 +1,4 @@
-"""Small explicit references from IMPACT MCW_KD.py:118-257, with documented fixes."""
+"""Explicit references for MCW-KD with documented fixes."""
 import torch
 import torch.nn.functional as F
 

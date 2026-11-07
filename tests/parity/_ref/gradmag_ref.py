@@ -1,4 +1,4 @@
-"""Reference: IMPACT/code/alm_multitask.py:63-108 (unchanged arithmetic)."""
+"""Reference implementation for multi-task gradient magnitude balancing."""
 import torch
 
 

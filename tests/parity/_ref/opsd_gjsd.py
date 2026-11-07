@@ -1,6 +1,6 @@
-"""Reference implementation copied verbatim from Self-Distill/OPSD-main/opsd_trainer.py:382-479.
+"""Reference implementation of Generalized JSD loss.
 
-Original code was a @staticmethod in OPSDTrainer. Converted to a module-level function.
+Converted to a module-level function.
 """
 import torch
 import torch.nn.functional as F

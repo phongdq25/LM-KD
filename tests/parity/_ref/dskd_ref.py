@@ -1,5 +1,5 @@
 """Reference implementations for DSKD family (T12).
-Verbatim copies from DSKDv2-main and IMPACT with minimal wrappers for parity testing.
+Reference implementations for DSKD baselines.
 Do not edit unless marking `# FIX(original bug): ...`.
 """
 from __future__ import annotations
@@ -35,7 +35,7 @@ def compute_cross_entropy_loss(
     return loss, None
 
 
-# --- DSKDv2-main/code/criterions/dual_space_kd.py:57-117
+# --- DSKD reference
 def compute_dual_space_kd_loss_ref(
     outputs: Any,
     teacher_outputs: Any,
@@ -106,7 +106,7 @@ def compute_dual_space_kd_loss_ref(
     return kd_loss, log
 
 
-# --- DSKDv2-main/code/criterions/dual_space_kd_v2.py:57-130
+# --- DSKDv2 reference
 def compute_dual_space_kd_v2_loss_ref(
     outputs: Any,
     teacher_outputs: Any,
@@ -192,7 +192,7 @@ def compute_dual_space_kd_v2_loss_ref(
     return kd_loss, log
 
 
-# --- IMPACT/code/criterions/DSKD.py:61-160 (DSKD-CMA)
+# --- DSKD-CMA reference
 def compute_dual_space_kd_loss_with_cma_ref(
     outputs: Any,
     teacher_outputs: Any,
@@ -286,7 +286,7 @@ def compute_dual_space_kd_loss_with_cma_ref(
     return kd_loss, log
 
 
-# --- DSKDv2-main/code/criterions/dual_space_kd_v2_with_exact_token_alignment.py:96-238
+# --- DSKDv2 with ETA reference
 def compute_dual_space_kd_loss_with_eta_ref(
     outputs: Any,
     teacher_outputs: Any,

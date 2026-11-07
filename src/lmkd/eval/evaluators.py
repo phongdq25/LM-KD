@@ -27,7 +27,7 @@ from lmkd.train.step_strategies import count_supervised
 logger = logging.getLogger(__name__)
 
 
-@EVALUATORS.register("dev_loss", source="white-box-distillation/same-tokenizer/finetune.py:435-539")
+@EVALUATORS.register("dev_loss")
 class DevLoss(Evaluator):
     """Teacher-forced dev set loss evaluated under the current training objective."""
 

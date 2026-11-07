@@ -30,7 +30,7 @@ LM-KD/
 │   ├── recipes/                  # Modular, composable YAML experiment specifications
 │   │   ├── _base_/               # Base configurations (engines, optimizers, evaluation)
 │   │   ├── same_tokenizer/       # Same-vocab KD (FKL, RKL, GKD, CSD, TVD, DistiLLM)
-│   │   ├── cross_tokenizer/      # Cross-vocab KD (DSKD, DSKDv2, IMPACT, ALM, SRA, ULD)
+│   │   ├── cross_tokenizer/      # Cross-vocab KD (DSKD, DSKDv2, ALM, SRA, ULD)
 │   │   ├── embedding/            # Dense embedding KD (DistillCSE, EMO, TALAS, Jasper)
 │   │   ├── long_cot/             # Long-chain reasoning KD (SSFT, P-ALIGN, SGL-Spectral)
 │   │   ├── self_distill/         # On-policy self-distillation (OPSD, SDPO, RLSD)

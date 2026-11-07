@@ -1,4 +1,4 @@
-# Verbatim: Self-Distill/RLSD-main/verl/workers/actor/dp_opsd_actor.py:210-269.
+"""Reference implementation of RLSD advantages."""
 from typing import Optional
 import torch
 

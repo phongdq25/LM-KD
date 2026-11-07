@@ -1,5 +1,5 @@
-# Stage 1: Warmup SFT on UltraChat200k to produce base checkpoint M_0 (APSP/sft.py)
-# Reference: Section 7 of EXPERIMENTS_OFFICIAL_DOC.md and APSP repository
+# Stage 1: Warmup SFT on UltraChat200k to produce base checkpoint M_0
+# Reference: Section 7 of EXPERIMENTS_OFFICIAL_DOC.md
 name: self_play_sft_warmup
 models:
   student:

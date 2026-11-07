@@ -1,4 +1,4 @@
-"""Reference implementation from Self-Distill/SDPO-main/verl/trainer/ppo/core_algos.py:1085-1163.
+"""Reference implementation of SDPO self-distillation loss.
 Extracts the top-k / full-logit self distillation loss, returning per_token_loss.
 """
 from __future__ import annotations

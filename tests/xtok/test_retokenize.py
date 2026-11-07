@@ -96,9 +96,9 @@ def test_retokenize_failed_rows_are_masked_not_dropped(xtok_records, xtok_ctx):
 
 def test_retokenize_provided_keys():
     cls = TEACHER_INPUTS.get("retokenize")
-    cfg = cls.Config(aligners=["exact_token", {"type": "boundary_interp"}])
+    cfg = cls.Config(aligners=["exact_token", {"type": "char_span"}])
     keys = cls.provided_keys(cfg)
-    assert "teacher.offsets" in keys and "align.eta_t_for_s" in keys and "align.impact_lo" in keys
+    assert "teacher.offsets" in keys and "align.eta_t_for_s" in keys and "align.span_pairs" in keys
     assert TEACHER_INPUTS.meta("retokenize").status == "stable"
 
 

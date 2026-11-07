@@ -1,5 +1,4 @@
-"""Verbatim copies of the original cross-tokenizer helpers (parity references for T11).
-Each block states its source file and lines. Do not edit."""
+"""Reference implementations of cross-tokenizer helpers."""
 try:
     import editdistance
 except ImportError:  # parity tests that need it importorskip it
@@ -11,7 +10,7 @@ from torch.nn.functional import pad
 N_SPAN = 1024
 
 
-# --- DSKDv2-main/code/criterions/dual_space_kd_v2_with_exact_token_alignment.py:8-41  (align_sequences)
+# --- DSKDv2 sequence alignment reference (align_sequences)
 def align_sequences(tea_seq, stu_seq, student_tokenizer, teacher_tokenizer):
     i, j = 0, 0
     t2s_align, s2t_align = [], []
@@ -48,7 +47,7 @@ def align_sequences(tea_seq, stu_seq, student_tokenizer, teacher_tokenizer):
     return t2s_align, s2t_align
 
 
-# --- IMPACT/code/criterions/E_SCOT.py:283-302  (_span_align)
+# --- E-SCOT span alignment reference (_span_align)
 def _span_align(s_spans, t_spans):
     """Algorithm 1 of paper 15849 — linear two-pointer sweep for character-span overlap.
 
@@ -71,7 +70,7 @@ def _span_align(s_spans, t_spans):
     return neighborhoods
 
 
-# --- IMPACT/code/sra_span_utils.py:15-200  (LCS / pooler v2)
+# --- SRA span utilities reference (LCS / pooler v2)
 def longest_common_subsequence(a, b, s_i=0, s_j=0):
     """Greedy matching of character-boundary positions between two tokenizations.
 
@@ -260,52 +259,7 @@ def prepare_pooler_v2(
     )
 
 
-# --- IMPACT/code/impact_utils.py:665-706  (_get_teacher_boundary_state)
-def _get_teacher_boundary_state(c, teacher_offsets, teacher_prefix_states, mode="linear"):
-    """Get the virtual teacher state at text boundary c.
-
-    teacher_offsets: list of (a_j, b_j) for each teacher token (0-indexed)
-    teacher_prefix_states: [L_T+1, d] where index 0 is the initial state (zeros),
-                           and index j+1 is the state after processing token j
-    mode:
-      - linear: interpolate between u_{j-1} and u_j by character offset (default)
-      - nearest: snap to closer of the two token boundaries
-      - containing: use state after consuming the teacher token that contains c
-    """
-    num_tokens = len(teacher_offsets)
-    if num_tokens == 0:
-        return teacher_prefix_states[0]
-
-    if c <= teacher_offsets[0][0]:
-        return teacher_prefix_states[0]
-    if c >= teacher_offsets[-1][1]:
-        return teacher_prefix_states[num_tokens]
-
-    mode = (mode or "linear").lower()
-    for j in range(num_tokens):
-        a_j, b_j = teacher_offsets[j]
-        if c == a_j:
-            return teacher_prefix_states[j]
-        if c == b_j:
-            return teacher_prefix_states[j + 1]
-        if a_j < c < b_j:
-            if mode == "containing":
-                return teacher_prefix_states[j + 1]
-            if mode == "nearest":
-                if (c - a_j) <= (b_j - c):
-                    return teacher_prefix_states[j]
-                return teacher_prefix_states[j + 1]
-            # linear (default)
-            span_len = b_j - a_j
-            if span_len == 0:
-                return teacher_prefix_states[j]
-            alpha = (c - a_j) / span_len
-            return (1.0 - alpha) * teacher_prefix_states[j] + alpha * teacher_prefix_states[j + 1]
-
-    return teacher_prefix_states[num_tokens]
-
-
-# --- IMPACT/code/criterions/MinED.py:368-411  (dtw (MinED, method -> function))
+# --- MinED DTW reference
 def dtw_min_ed(series_1, series_2, norm_func=np.linalg.norm):
     """Use dynamic time wrapping to align to tokenizers, modified from:
     https://github.com/talcs/simpledtw/blob/master/simpledtw.py"""
@@ -352,7 +306,7 @@ def dtw_min_ed(series_1, series_2, norm_func=np.linalg.norm):
     return matches, matrix[-1, -1], mappings_series_1, mappings_series_2, matrix
 
 
-# --- IMPACT/code/criterions/MCW_KD.py:433-464  (dtw_alignment (MCW))
+# --- MCW-KD DTW alignment reference
 def dist_fn_edit(a, b):
     return editdistance.eval(a, b)
 

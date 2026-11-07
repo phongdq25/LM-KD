@@ -58,7 +58,6 @@ def test_check_catches_errors(base_recipe):
     base_recipe["loss"]["terms"] = [
         {"criterion": "token_kd", "params": {"divergence": "fkl", "bogus": 1}},
         {"criterion": "weighted_nll"},
-        {"criterion": "impact"},
         {"criterion": "token_kd", "alias": "kd_ok"},
     ]
     rep = check_recipe(recipe_from_dict(base_recipe))
@@ -66,5 +65,4 @@ def test_check_catches_errors(base_recipe):
     assert not rep.ok
     assert "bogus" in text  # strict params
     assert "seq.token_weights" in text  # requires graph
-    assert "align.impact_lo" in text  # stable IMPACT requires offline boundary tables
     assert "needs a teacher" in text

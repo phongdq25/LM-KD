@@ -1,6 +1,4 @@
-"""Verbatim copy of E-SCOT loss and Renyi entropy helper from
-white-box-distillation/cross-tokenizer/IMPACT/code/criterions/E_SCOT.py:114-280.
-"""
+"""Reference implementation of E-SCOT loss and Renyi entropy helper."""
 from __future__ import annotations
 
 import torch

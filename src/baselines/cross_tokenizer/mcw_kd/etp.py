@@ -1,4 +1,4 @@
-"""Entropic transport and semi-dual MCW transport from IMPACT ETP.py / ETP_Dual.py."""
+"""Entropic transport and semi-dual MCW transport."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 
 class ETP(nn.Module):
-    """Sinkhorn transport with the original IMPACT update order, evaluated in fp32."""
+    """Sinkhorn transport evaluated in fp32."""
 
     def __init__(
         self, sinkhorn_alpha: float = 0.1, stop_thr: float = 1e-9, ot_max_iter: int = 100, epsilon: float = 1e-9
@@ -62,7 +62,7 @@ class DualPotentialNetwork(nn.Module):
 
 
 class MultiCostSemiDualOT(nn.Module):
-    """IMPACT multi-cost semi-dual OT with trainable β and in-forward φ ascent."""
+    """Multi-cost semi-dual OT with trainable β and in-forward φ ascent."""
 
     def __init__(
         self,

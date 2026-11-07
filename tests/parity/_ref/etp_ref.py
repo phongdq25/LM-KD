@@ -1,4 +1,4 @@
-"""Independent fp32 reference from IMPACT criterions/ETP.py:36-56."""
+"""Independent fp32 reference for ETP."""
 import torch
 import torch.nn.functional as F
 
@@ -22,7 +22,7 @@ def etp_ref(cost, alpha=0.1, stop_thr=1e-9, max_iter=100, eps=1e-9):
 
 
 def dual_ref(module, x, y, costs):
-    """Explicit IMPACT ETP_Dual.py:204-314 equations with source φ ascent."""
+    """Explicit ETP_Dual equations with source φ ascent."""
     mu = x.new_ones(len(x)) / len(x)
     nu = y.new_ones(len(y)) / len(y)
     context = x.mean(0)

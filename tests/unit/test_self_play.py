@@ -66,8 +66,6 @@ def test_self_play_registry_discovery():
         "sspppo_loss",
         "s_sppo_loss",
         "rspo_loss",
-        "apsp",
-        "apsp_loss",
     )
     for name in disallowed:
         assert name not in CRITERIONS, f"Disallowed alias {name} should not be registered in CRITERIONS"

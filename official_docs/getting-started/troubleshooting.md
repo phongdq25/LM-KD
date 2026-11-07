@@ -63,7 +63,6 @@ Direct logit distillation ($\mathcal{L}_{\text{KD}}(P_T, P_S)$) mathematically a
 1. **Use Cross-Tokenizer Criteria:**
    Do not use standard `fkl` or `rkl` for cross-family distillation. Instead, use cross-tokenizer methods from `recipes/cross_tokenizer/`:
    - `dskdv2` (Dual-Space Knowledge Distillation with soft token mapping)
-   - `impact` (Information-Maximizing Partitioned Alignment)
    - `mcw_kd` (Multi-Cost Wasserstein KD)
    - `sra` (Span Representation Alignment)
 2. **Configure an Aligner:**

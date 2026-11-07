@@ -1,6 +1,6 @@
 # Standard Self-Play Fine-Tuning evaluation across 7 benchmarks:
 # GSM8K, MATH (minerva_math / math500), MMLU, MMLU-Pro, HellaSwag, Winogrande, IFEval.
-# Official Scenario 7 protocol (Chen et al. ICML 2024, Wu et al. ICLR 2025, APSP).
+# Official Scenario 7 protocol (Chen et al. ICML 2024, Wu et al. ICLR 2025).
 eval:
   - type: dev_loss
     when: epoch

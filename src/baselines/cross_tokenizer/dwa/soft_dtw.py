@@ -60,7 +60,7 @@ except Exception:
 
 
 # -----------------------------------------------------------------------------
-# Numba CUDA Kernels (from MTA/dwa_mta/code/criterions/soft_dtw_cuda.py)
+# Numba CUDA Kernels
 # -----------------------------------------------------------------------------
 if _NUMBA_CUDA_AVAILABLE:
 

@@ -1,4 +1,4 @@
-"""Reference implementation of DWA-KD from MTA/dwa_mta/code/criterions/dwa_kd.py and soft_dtw_cuda.py."""
+"""Reference implementation of DWA-KD."""
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ class RefSoftDTWFunction(torch.autograd.Function):
 
 
 def ref_softdtw(D: torch.Tensor, gamma: float = 1.0, bandwidth: float = 0.0) -> torch.Tensor:
-    """Reference Soft-DTW forward pass matching MTA/dwa_mta/code/criterions/soft_dtw_cuda.py."""
+    """Reference Soft-DTW forward pass."""
     return RefSoftDTWFunction.apply(D, gamma, bandwidth)
 
 
@@ -103,7 +103,7 @@ def ref_compute_dwa_band_penalty(
     entropy_coef: float = 2.0,
     pen_scale: float = 1.0,
 ) -> torch.Tensor:
-    """Exact verbatim port of DWA banding from MTA/dwa_mta/code/criterions/dwa_kd.py:317-346."""
+    """Reference implementation of DWA banding."""
     eps = 1e-9
     A_slice = A[:s_len, :t_len]
     A_clamped = (A_slice + eps) / (A_slice.sum(dim=-1, keepdim=True) + eps)
@@ -138,7 +138,7 @@ def ref_calculate_alignment_loss(
     entropy_coef: float = 2.0,
     pen_scale: float = 1.0,
 ) -> torch.Tensor:
-    """Verbatim port of _calculate_alignment_loss from dwa_kd.py:276-386."""
+    """Reference calculation of alignment loss."""
     batch_size = student_embs.size(0)
     total_loss = torch.tensor(0.0, device=student_embs.device, requires_grad=True)
     non_empty_pairs = 0

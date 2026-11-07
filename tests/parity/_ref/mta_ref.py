@@ -1,4 +1,4 @@
-"""Reference implementation of MTA from white-box-distillation/same-tokenizer/finetune.py."""
+"""Reference implementation of MTA."""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

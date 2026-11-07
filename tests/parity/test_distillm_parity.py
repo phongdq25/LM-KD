@@ -1,26 +1,8 @@
-import importlib.util
-from pathlib import Path
-
 import pytest
 import torch
 
 from lmkd.losses.functional.divergences import get_divergence
-
-ROOT = Path(__file__).resolve().parents[3]  # .../llm-distillation-baseline
-
-
-def _load_distillm():
-    rel = "white-box-distillation/same-tokenizer/distillm/losses.py"
-    path = ROOT / rel
-    if not path.exists():
-        pytest.skip(f"Original file not found: {path}", allow_module_level=True)
-    spec = importlib.util.spec_from_file_location("ref_" + rel.replace("/", "_"), path)
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
-
-
-distillm = _load_distillm()
+from tests.parity._ref import distillm_ref as distillm
 
 
 @pytest.mark.parity

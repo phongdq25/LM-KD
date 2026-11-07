@@ -1,4 +1,4 @@
-"""Reference arithmetic from IMPACT/code/sra_span_utils.py:203-280 and criterions/SRA.py:163-319."""
+"""Reference implementation of SRA span pooling and loss."""
 import torch
 import torch.nn.functional as F
 

@@ -1,7 +1,7 @@
 """Shared helper functions and reduction utilities for Self-Play Fine-Tuning baselines.
 
-Supports canonical methods from APSP and self-play literature:
-SPIN, T-SPIN, SPACE, SPPO, S-SPPO, RSPO, and APSP.
+Supports canonical methods from self-play literature:
+SPIN, T-SPIN, SPACE, SPPO, S-SPPO, and RSPO.
 """
 
 from __future__ import annotations

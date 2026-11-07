@@ -1,8 +1,11 @@
-"""Verbatim reference implementations from APSP codebase:
+"""Reference implementations for self-play fine-tuning baselines:
 
-- trainers.py (preference_loss/SPIN, tspin_loss, space_loss)
-- SPPO/sppo/trainer.py (sppo, sspppo)
-- RSPO/sppo/trainer_reg.py (rspo reverse-KL)
+- preference_loss (SPIN)
+- tspin_loss (T-SPIN)
+- space_loss (SPACE)
+- orig_sppo_loss (SPPO)
+- orig_sspppo_loss (S-SPPO)
+- orig_rspo_reversekl_loss (RSPO)
 """
 
 from __future__ import annotations
@@ -13,7 +16,6 @@ import torch
 import torch.nn.functional as F
 
 
-# Verbatim from APSP/trainers.py:89-109
 def preference_loss(
     policy_chosen_logps: torch.FloatTensor,
     policy_rejected_logps: torch.FloatTensor,
@@ -39,7 +41,6 @@ def preference_loss(
     return losses, chosen_rewards, rejected_rewards
 
 
-# Verbatim from APSP/trainers.py:112-125
 def tspin_loss(
     policy_chosen_logps: torch.FloatTensor,
     policy_rejected_logps: torch.FloatTensor,
@@ -57,7 +58,6 @@ def tspin_loss(
     return losses, chosen_rewards, rejected_rewards
 
 
-# Verbatim from APSP/trainers.py:127-145
 def space_loss(
     policy_chosen_logps: torch.FloatTensor,
     policy_rejected_logps: torch.FloatTensor,
@@ -81,7 +81,6 @@ def space_loss(
     return losses, chosen_rewards, rejected_rewards
 
 
-# Verbatim from APSP/SPPO/sppo/trainer.py:906-928
 def orig_sppo_loss(
     policy_chosen_logps,
     policy_rejected_logps,
@@ -125,7 +124,6 @@ def orig_sspppo_loss(
     return losses
 
 
-# Verbatim from APSP/RSPO/sppo/trainer_reg.py:850-950
 def orig_rspo_reversekl_loss(
     policy_chosen_logps,
     policy_rejected_logps,

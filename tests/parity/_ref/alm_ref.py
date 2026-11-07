@@ -1,4 +1,4 @@
-"""Pure reference from IMPACT/code/criterions/ALM.py:14-34,133-289."""
+"""Reference implementation of ALM."""
 import torch
 import torch.nn.functional as F
 

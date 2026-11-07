@@ -17,7 +17,7 @@ def test_overlap_orders(xtok_tokenizers):
     assert vm.overlap_s.tolist() == [sv[k] for k in toks]  # student vocab order (DSKDv2)
     assert vm.overlap_t.tolist() == [tv[k] for k in toks]
     srt = sorted(toks)
-    assert vm.overlap_sorted_s.tolist() == [sv[k] for k in srt]  # string order (IMPACT)
+    assert vm.overlap_sorted_s.tolist() == [sv[k] for k in srt]  # string order
     assert vm.overlap_sorted_t.tolist() == [tv[k] for k in srt]
     assert set(vm.overlap_s.tolist()) == set(vm.overlap_sorted_s.tolist())
     assert set(vm.overlap_t.tolist()) == set(vm.overlap_sorted_t.tolist())

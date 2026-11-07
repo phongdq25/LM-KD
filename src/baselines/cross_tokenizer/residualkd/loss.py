@@ -90,7 +90,7 @@ def residual_core(
     threshold: float,
     teacher_pad: torch.Tensor | None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Port IMPACT residual attention, response mask, beta and hidden correction."""
+    """Residual attention, response mask, beta and hidden correction."""
     with torch.no_grad():
         hta = ta.encode(ht)
     hsa = sa(hs)

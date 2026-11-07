@@ -1,6 +1,4 @@
-"""Verbatim copy of MinED alignment and loss from
-white-box-distillation/cross-tokenizer/IMPACT/code/criterions/MinED.py:91-210, 368-411.
-"""
+"""Reference implementation of MinED alignment and loss."""
 from __future__ import annotations
 
 from typing import Any
@@ -73,7 +71,7 @@ def transform_step_logits_fast_ref(
     base_model_special_token: str = "Ġ",
     blending_model_special_token: str = "Ġ",
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """MinED.py:138-210. Returns (blending_to_base_logits, unalign_mask)."""
+    """Returns (blending_to_base_logits, unalign_mask)."""
     import editdistance
 
     def dist_fn(a: str, b: str) -> int:
@@ -137,7 +135,7 @@ def get_aligned_teacher_logits_ref(
     map_t: torch.Tensor,
     padding_id: int = -100,
 ) -> torch.Tensor:
-    """MinED.py:91-136. Rebuilds aligned teacher logits over the batch."""
+    """Rebuilds aligned teacher logits over the batch."""
     bsz = student_target.shape[0]
     aligned_tea_logits = []
     for i in range(bsz):

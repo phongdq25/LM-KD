@@ -10,8 +10,7 @@ for every supported baseline, as well as general-purpose distributed training an
 ```
 scripts/
 ├── same_tokenizer/              # Scripts for same-tokenizer logit KD (FKL, RKL, DistiLLM, GKD, CSD, TVD, JSD, ...)
-├── cross_tokenizer/             # Scripts for cross-tokenizer KD (DSKD, DSKDv2, ULD, MinED, MLOT, E-SCOT, IMPACT, ...)
-│   └── ablation/                # Scripts for DSKDv2 + IMPACT ablation studies
+├── cross_tokenizer/             # Scripts for cross-tokenizer KD (DSKD, DSKDv2, ULD, MinED, MLOT, E-SCOT, ...)
 ├── long_cot/                    # Scripts for Long-CoT reasoning (SGL-Spectral, SSFT, P-ALIGN, SARW, ...)
 ├── self_distill/                # Scripts for on-policy self-distillation & RL (OPSD, SDPO, RLSD, GRPO, ...)
 ├── preference/                  # Scripts for preference distillation (DPO, SimPO, IPO, KTO, TDPO, β-DPO, ...)

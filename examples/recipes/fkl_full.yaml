@@ -136,7 +136,7 @@ data:
                                         #   - token_offsets: Computes character offsets [start, end)
                                         #   - load_vocab_map: Loads cross-tokenizer vocabulary projection map
                                         #   - align: Computes token alignments via Aligner plugins: exact_token |
-                                        #            boundary_interp | dtw_edit | char_span | lcs_span | parent_groups
+                                        #            dtw_edit | char_span | lcs_span | parent_groups
                                         #   - allocate_iwc: Inverse-Weighted CoT step weight allocation
                                         #   - tail_boost: Boosts weights for concluding reasoning steps
                                         #   - provenance: Distinguishes token origin (prompt, prefix, continuation)
@@ -171,14 +171,14 @@ data:
 # 3. PIPELINE (Optional Offline Multi-Stage DAG Processing)
 # ===================================================================================================
 # Used for computationally intensive offline preprocessing before training (e.g. P-ALIGN,
-# SGL Spectral, Integrated Gradients SSFT, IMPACT Calibration, or Teacher Embeddings/Cache).
+# SGL Spectral, Integrated Gradients SSFT, or Teacher Embeddings/Cache).
 # When running without offline DAG stages, keep empty: `pipeline: []`.
 #
 # Example DAG syntax when enabled:
 # pipeline:
 #   - stage: prepare_dataset            # Stage plugin name: prepare_dataset | generate | ig_attribution |
 #     name: data                        # spectral_capture | answer_gain | build_weights | score | teacher_cache |
-#     source: {type: jsonl, path: ...}  # embed_teacher | impact_calibrate | vocab_map | align_precompute | train_recipe
+#     source: {type: jsonl, path: ...}  # embed_teacher | vocab_map | align_precompute | train_recipe
 #     transforms: [...]
 #   - stage: spectral_capture
 #     name: spectral

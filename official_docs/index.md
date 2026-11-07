@@ -41,7 +41,7 @@ However, empirical research in this domain has long suffered from severe codebas
 │• External Corpus │  │• Character Offset│   │• Live Inference   │   │• 90+ Objectives  │  │• num_items norm  │
 │• Current-Policy  │  │• Subword Mapping │   │• Top-K Logit Cache│   │• Forward/Rev KL  │  │• Lazy Chunking   │
 │• Lagged-Policy   │  │• Trace Segment   │   │• Privileged Hints │   │• Optimal Transp. │  │• ZeRO / FSDP /   │
-│• Mixed Schedules │  │• ETA / BPIA / DTW│   │• Embeddings Store │   │• Preference NLL  │  │  vLLM Colocation │
+│• Mixed Schedules │  │• ETA / LCS / DTW │   │• Embeddings Store │   │• Preference NLL  │  │  vLLM Colocation │
 └──────────────────┘  └──────────────────┘   └───────────────────┘   └──────────────────┘  └──────────────────┘
 ```
 
@@ -53,7 +53,7 @@ However, empirical research in this domain has long suffered from severe codebas
 - **Target-Aligned Lazy Chunking (`LogitsView`):** Slashes peak activation memory by over **60%** by evaluating divergences in streaming sequence chunks without materializing full `[Batch, Length, Vocab]` tensors.
 - **Decoupled High-Throughput Rollouts:** Deep integration with **vLLM PagedAttention**, supporting GPU co-location (sleep mode memory sharing) and distributed asynchronous sampling.
 - **Centralized Micro-batch Normalization:** Eliminates gradient scale drift across distributed data-parallel workers by normalizing updates by the exact count of supervised tokens (`num_items_in_batch`).
-- **Comprehensive Cross-Tokenizer Tooling:** Native support for cross-vocabulary transfer between incompatible architectures (e.g., Qwen2.5 $\rightarrow$ GPT-2/OPT) via exact token alignment (ETA), boundary-preserving incremental alignment (IMPACT/BPIA), and optimal transport.
+- **Comprehensive Cross-Tokenizer Tooling:** Native support for cross-vocabulary transfer between incompatible architectures (e.g., Qwen2.5 $\rightarrow$ GPT-2/OPT) via exact token alignment (ETA) and optimal transport.
 - **Scientific Provenance:** Automated emission of `reproduction.json` capturing git hashes, input data checksums, hardware environments, and exact hyperparameters.
 
 ---

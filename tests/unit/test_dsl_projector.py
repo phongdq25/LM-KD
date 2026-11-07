@@ -1,4 +1,4 @@
-"""Unit tests for IMPACT DSLProjector."""
+"""Unit tests for DSLProjector."""
 
 import pytest
 import torch

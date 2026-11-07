@@ -92,7 +92,7 @@ def compute_token_on_off_policy_loss(
     loss_remove_token_mean=False,
     loss_remove_clip=False,
 ):
-    """Adapted verbatim from LUFFY/luffy/verl/verl/mix_src/mix_core_alg.py:69-251."""
+    """Adapted reference implementation of LUFFY core algorithm."""
     negative_approx_kl = log_prob - old_log_prob
     ppo_kl = VerlF.masked_mean(-negative_approx_kl, eos_mask)
 

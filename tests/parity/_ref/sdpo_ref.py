@@ -1,4 +1,4 @@
-# Verbatim: Self-Distill/SDPO-main/verl/trainer/ppo/core_algos.py:1085-1190.
+"""Reference implementation of SDPO loss."""
 from typing import Any, Optional
 import torch
 import torch.nn.functional as F

@@ -23,7 +23,7 @@ class TokenOffsets(Transform):
     teacher).
 
     Prompt and response are tokenized separately and the response offsets shifted by ``len(prompt_text)``
-    (``compute_separate_offsets`` of IMPACT, not the joint ``compute_text_offsets``); the rebuilt ids must equal the
+    (separate offsets, not the joint offsets); the rebuilt ids must equal the
     training ids or the sample is dropped / raises (``on_mismatch``). Needs ``tokenize_sft(keep_text=true)``; with
     ``teacher: true`` use ``tokenize_sft(teacher_prompt_text=same)`` so both sides share one char space.
     """

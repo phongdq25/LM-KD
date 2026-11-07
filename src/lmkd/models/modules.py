@@ -398,7 +398,7 @@ INITS: dict[str, Callable[[nn.Module], None]] = {
     "zeros": _zeros,
     "normal_1e-3": _normal(1e-3),
     "normal_0.02": _normal(0.02),
-    # "pinv_logit_equiv" (DSKDv2) and "ridge_buffer" (IMPACT) need model weights
+    # "pinv_logit_equiv" (DSKDv2) needs model weights
 }
 
 
@@ -447,7 +447,7 @@ class MLPProjector(nn.Module):
 
 @PROJECTORS.register("dsl")
 class DSLProjector(nn.Module):
-    """IMPACT projector DSL (e.g. '2s-2t', 's-p-relu-t'). Parses structured layer specs."""
+    """Projector DSL (e.g. '2s-2t', 's-p-relu-t'). Parses structured layer specs."""
 
     class Config(BaseConfig):
         structure: str

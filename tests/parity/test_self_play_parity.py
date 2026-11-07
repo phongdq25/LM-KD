@@ -1,21 +1,21 @@
-"""Parity tests for Self-Play Fine-Tuning baselines against original APSP repo implementation."""
+"""Parity tests for Self-Play Fine-Tuning baselines against reference implementations."""
 
 from __future__ import annotations
 
 import pytest
 import torch
-from tests.parity._ref.apsp_ref import (
+from tests.parity._ref.self_play_ref import (
     orig_rspo_reversekl_loss,
     orig_sppo_loss,
     orig_sspppo_loss,
 )
-from tests.parity._ref.apsp_ref import (
+from tests.parity._ref.self_play_ref import (
     preference_loss as orig_spin_loss,
 )
-from tests.parity._ref.apsp_ref import (
+from tests.parity._ref.self_play_ref import (
     space_loss as orig_space_loss,
 )
-from tests.parity._ref.apsp_ref import (
+from tests.parity._ref.self_play_ref import (
     tspin_loss as orig_tspin_loss,
 )
 

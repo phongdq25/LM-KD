@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 import torch
 
-from baselines.cross_tokenizer.impact import boundary_coeffs, boundary_table
 from lmkd.core.batch import FIELDS
 from lmkd.core.registry import ALIGNERS
 from lmkd.data.vocab_map import VocabMap
@@ -93,55 +92,6 @@ def test_char_span_target_mode(xtok_samples, xtok_ctx):
     a = build({"type": "char_span", "span_of": "target"})(s, xtok_ctx)["align.span_pairs"]
     b = build({"type": "char_span", "span_of": "context"})(s, xtok_ctx)["align.span_pairs"]
     assert a and b and a != b
-
-
-# --------------------------------------------------------------------------- boundary_interp
-def _rand_offsets(rng, n, zero_width=True):
-    pos, offs = 0, []
-    for _ in range(n):
-        w = rng.choice([0, 1, 2, 3, 5]) if zero_width else rng.choice([1, 2, 3, 5])
-        offs.append((pos, pos + w))
-        pos += w
-    return offs
-
-
-@pytest.mark.parametrize("mode", ["linear", "nearest", "containing"])
-def test_boundary_coeffs_equals_original(mode):
-    ref = _ref()
-    rng = random.Random(0)
-    for trial in range(40):
-        n = rng.randint(1, 12)
-        t_off = _rand_offsets(rng, n)
-        if trial % 4 == 0:  # non-monotone offsets: the literal scan must still agree
-            t_off = [tuple(sorted((rng.randint(0, 20), rng.randint(0, 20)))) for _ in range(n)]
-        P = torch.randn(n + 1, 5, dtype=torch.float64)
-        end = t_off[-1][1] + 3
-        cs = list(range(-1, end + 1))
-        table = boundary_table(cs, t_off, mode)
-        for c, (lo, hi, w) in zip(cs, table):
-            exp = ref._get_teacher_boundary_state(c, t_off, P, mode=mode)
-            got = (1 - w) * P[lo] + w * P[hi]
-            assert torch.allclose(got, exp, atol=1e-6), (t_off, c, mode)
-            assert (lo, hi, w) == boundary_coeffs(c, t_off, mode)
-
-
-def test_boundary_interp_aligner(xtok_samples, xtok_ctx):
-    ref = _ref()
-    s = xtok_samples[2]
-    out = build({"type": "boundary_interp", "mode": "linear"})(s, xtok_ctx)
-    n_s, n_t = len(s["student.input_ids"]), len(s["teacher.input_ids"])
-    assert np.asarray(out["align.impact_lo"]).shape == (n_s, 2)
-    assert out["meta.impact_mode"] == "linear"
-    P = torch.randn(n_t + 1, 4, dtype=torch.float64)
-    P[0] = 0
-    t_off = [tuple(o) for o in s["teacher.offsets"]]
-    lo, hi, w = (torch.tensor(out[f"align.impact_{k}"]) for k in ("lo", "hi", "w"))
-    for i in range(n_s):
-        a_i, b_i = s["student.offsets"][i]
-        for col, c in enumerate((a_i, b_i)):
-            exp = ref._get_teacher_boundary_state(c, t_off, P, mode="linear")
-            got = (1 - w[i, col]) * P[lo[i, col]] + w[i, col] * P[hi[i, col]]
-            assert torch.allclose(got, exp, atol=1e-6)
 
 
 # --------------------------------------------------------------------------- dtw_edit
@@ -293,7 +243,7 @@ def _tokenkit():
     try:
         import tokenkit  # noqa: F401
     except ImportError:
-        src = Path(__file__).resolve().parents[3] / "white-box-distillation/cross-tokenizer/IMPACT/tokenkit-main"
+        src = Path(__file__).resolve().parents[2] / "packages" / "tokenkit-main"
         if not src.exists():
             pytest.skip("tokenkit not installed")
         sys.path.insert(0, str(src))
@@ -360,9 +310,6 @@ def test_tokenkit_chunk_one_chunk_per_token(xtok_samples, xtok_ctx):
         ("align.span_pairs", "ragged", torch.long, 0, None),
         ("align.sra_s_idx", "ragged", torch.long, -1, None),
         ("align.sra_t_idx", "ragged", torch.long, -1, None),
-        ("align.impact_lo", "token_k", torch.long, 0, "student"),
-        ("align.impact_hi", "token_k", torch.long, 0, "student"),
-        ("align.impact_w", "token_k", torch.float32, 0.0, "student"),
         ("align.chunk_s", "token", torch.long, -1, "student"),
         ("align.chunk_t", "token", torch.long, -1, "teacher"),
         ("align.parent_groups_s", "ragged", torch.long, -1, None),
@@ -375,9 +322,9 @@ def test_field_specs(key, kind, dtype, pad, side):
     assert (spec.kind, spec.dtype, spec.pad_value, spec.side) == (kind, dtype, pad, side)
 
 
-def test_seven_aligners_stable():
+def test_six_aligners_stable():
     from lmkd.core.registry import ALIGNERS as REG
 
-    names = {"exact_token", "dtw_edit", "char_span", "lcs_span", "boundary_interp", "tokenkit_chunk", "parent_groups"}
+    names = {"exact_token", "dtw_edit", "char_span", "lcs_span", "tokenkit_chunk", "parent_groups"}
     assert names <= set(REG)
     assert all(REG.meta(n).status == "stable" for n in names)

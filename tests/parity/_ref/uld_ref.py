@@ -1,6 +1,4 @@
-"""Verbatim copy of compute_universal_logit_distillation_loss from
-white-box-distillation/cross-tokenizer/IMPACT/code/criterions/ULD.py:61-113.
-"""
+"""Reference implementation of compute_universal_logit_distillation_loss."""
 from __future__ import annotations
 
 import torch

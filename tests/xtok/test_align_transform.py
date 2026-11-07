@@ -30,7 +30,6 @@ def test_align_in_memory_and_collate(xtok_records, xtok_ctx):
         ),
         TRANSFORMS.build({"type": "token_offsets", "teacher": True}),
         TRANSFORMS.build({"type": "align", "aligner": "exact_token"}),
-        TRANSFORMS.build({"type": "align", "aligner": {"type": "boundary_interp", "mode": "nearest"}}),
     ]
     samples = run_transforms(xtok_records[:6], tfs, xtok_ctx)
     batch = _collator(xtok_ctx)(samples)
@@ -38,13 +37,11 @@ def test_align_in_memory_and_collate(xtok_records, xtok_ctx):
     t_t = batch["teacher.input_ids"].shape[1]
     assert batch["align.eta_t_for_s"].shape == (6, t_s)
     assert batch["align.eta_s_for_t"].shape == (6, t_t)
-    assert batch["align.impact_lo"].shape == (6, t_s, 2) and batch["align.impact_w"].dtype == torch.float32
     assert batch["student.offsets"].shape == (6, t_s, 2) and batch["teacher.offsets"].shape == (6, t_t, 2)
     for b, s in enumerate(samples):
         n = len(s["student.input_ids"])
         assert (batch["align.eta_t_for_s"][b, n:] == -1).all()  # pad value of the FieldSpec
         assert (batch["student.offsets"][b, n:] == -1).all()
-    assert batch.meta["meta.impact_mode"] == ["nearest"] * 6
 
 
 def test_token_offsets_drop_and_raise(xtok_records, xtok_ctx):
@@ -220,7 +217,6 @@ def test_offline_alignment_speed_1000_samples(xtok_samples, xtok_ctx):
                 "exact_token",
                 "char_span",
                 "lcs_span",
-                "boundary_interp",
                 {"type": "dtw_edit", "full_sequence": True},
             )
         ]
@@ -231,7 +227,7 @@ def test_offline_alignment_speed_1000_samples(xtok_samples, xtok_ctx):
         elapsed = time.time() - t0
     finally:
         xtok_ctx.vocab_map = None
-    print(f"\n[T11] 5 aligners x 1000 toy samples: {elapsed:.2f}s")
+    print(f"\n[T11] 4 aligners x 1000 toy samples: {elapsed:.2f}s")
     assert elapsed < 10
 
 

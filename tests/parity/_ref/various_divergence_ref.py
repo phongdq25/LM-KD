@@ -1,6 +1,4 @@
-"""Verbatim copy of the ``compute_*`` divergence methods of IMPACT's VariousDivergence
-(white-box-distillation/cross-tokenizer/IMPACT/code/criterions/various_divergence.py:102-308); only the constructor
-is replaced by a minimal one. Do not edit."""
+"""Reference implementation of various divergence methods."""
 from types import SimpleNamespace
 
 import torch

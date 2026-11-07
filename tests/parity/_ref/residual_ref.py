@@ -1,4 +1,4 @@
-"""Independent reference for IMPACT residualkd_utils.py:49-112."""
+"""Independent reference for ResidualKD utilities."""
 import math
 
 import torch
@@ -25,7 +25,7 @@ def residual_core_ref(hs, ht, sa, ta, as_, labels_pos, teacher_logits, cross, th
 
 
 def pretrain_ref(hidden, labels, projector, head):
-    """IMPACT pretrain wrapper: reconstruct hidden, apply detached head, shift CE."""
+    """Pretrain wrapper: reconstruct hidden, apply detached head, shift CE."""
     _, reconstructed = projector(hidden.detach())
     logits = F.linear(reconstructed[:, :-1], head.weight.detach())
     return F.cross_entropy(logits.reshape(-1, logits.shape[-1]), labels[:, 1:].reshape(-1))

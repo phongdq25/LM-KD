@@ -1,6 +1,4 @@
-"""Verbatim copy of MultiLevelOT helpers and compute_multi_level_ot_loss from
-white-box-distillation/cross-tokenizer/IMPACT/code/criterions/MultiLevelOT.py:7-49, 141-204.
-"""
+"""Reference implementation of MultiLevelOT helpers and compute_multi_level_ot_loss."""
 from __future__ import annotations
 
 import torch

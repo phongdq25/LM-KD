@@ -32,8 +32,8 @@ def tokenizer_fingerprint(tok: Any) -> dict:
 class VocabMapStage(Stage):
     """Student/teacher vocabulary overlap and id mappings (``VocabMap``), exposed as ``rt.data_ctx.vocab_map``.
 
-    ``kind`` is only ``overlap``; ``lambda_reg`` is kept for compatibility and unused (the ridge W is computed in
-    ``impact.prepare``). Put it BEFORE any ``align_precompute`` stage; ``attach`` loads the map also when the
+    ``kind`` is only ``overlap``; ``lambda_reg`` is kept for compatibility and unused.
+    Put it BEFORE any ``align_precompute`` stage; ``attach`` loads the map also when the
     stage output was cached.
     """
 
