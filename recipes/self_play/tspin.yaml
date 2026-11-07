@@ -1,13 +1,14 @@
-# T-SPIN: Triplet Self-Play Fine-Tuning
+# T-SPIN: Triplet Self-Play Fine-Tuning (Wang et al., NeurIPS 2025)
+# Starts from SFT warmup checkpoint M_0 (trained on ultrachat_200k)
 name: tspin_self_play
 models:
-  student: {path: Qwen/Qwen2.5-1.5B, dtype: bf16}
+  student: {path: outputs/self_play/sft_warmup/checkpoint-final, dtype: bf16}
 data:
   max_length: 1024
   eval:
     type: hf_dataset
-    path: UCLA-AGI/SPIN_iter0
-    split: test
+    path: HuggingFaceH4/ultrachat_200k
+    split: test_sft
     limit: 200
 pipeline:
   - stage: prepare_dataset
@@ -37,7 +38,18 @@ eval:
     when: epoch
     data:
       type: hf_dataset
-      path: UCLA-AGI/SPIN_iter0
-      split: test
+      path: HuggingFaceH4/ultrachat_200k
+      split: test_sft
       limit: 200
-
+  - type: lm_eval
+    when: end
+    name: self_play
+    tasks:
+      - gsm8k
+      - minerva_math
+      - mmlu
+      - mmlu_pro
+      - hellaswag
+      - winogrande
+      - ifeval
+    batch_size: auto

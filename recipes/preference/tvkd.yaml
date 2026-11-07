@@ -1,6 +1,6 @@
 name: tvkd_listwise
 models:
-  student: {path: outputs/preference/dckd, dtype: bf16}
+  student: {path: meta-llama/Llama-3.2-1B-Instruct, dtype: bf16}
 data:
   max_length: 2048
   eval:
@@ -46,4 +46,14 @@ eval:
       path: HuggingFaceH4/ultrafeedback_binarized
       split: test_prefs
       limit: 200
+  - type: lm_eval
+    when: end
+    name: preference
+    tasks:
+      - hellaswag
+      - arc_challenge
+      - truthfulqa_mc2
+      - winogrande
+      - gsm8k
+    batch_size: auto
 

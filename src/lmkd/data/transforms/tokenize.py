@@ -11,13 +11,30 @@ from lmkd.data.labels import make_labels
 from lmkd.data.transforms.base import Transform
 
 
-def render_prompt(tokenizer: Any, prompt: Any, use_chat_template: bool, **tmpl_kwargs) -> str:
+def render_prompt(
+    tokenizer: Any,
+    prompt: Any,
+    use_chat_template: bool,
+    system_prompt: str | None = None,
+    **tmpl_kwargs,
+) -> str:
     """prompt may be a string or a list of chat messages."""
     if use_chat_template and getattr(tokenizer, "chat_template", None):
-        msgs = prompt if isinstance(prompt, list) else [{"role": "user", "content": prompt}]
+        if isinstance(prompt, list):
+            msgs = list(prompt)
+            if system_prompt and (not msgs or msgs[0].get("role") != "system"):
+                msgs = [{"role": "system", "content": system_prompt}] + msgs
+        else:
+            msgs = []
+            if system_prompt:
+                msgs.append({"role": "system", "content": system_prompt})
+            msgs.append({"role": "user", "content": str(prompt)})
         return tokenizer.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True, **tmpl_kwargs)
     if isinstance(prompt, list):
-        return "\n".join(m["content"] for m in prompt)
+        text = "\n".join(m["content"] for m in prompt)
+        return f"{system_prompt}\n\n{text}" if system_prompt else text
+    if system_prompt:
+        return f"{system_prompt}\n\n{prompt}"
     return prompt
 
 
@@ -74,10 +91,17 @@ class TokenizeSFT(Transform):
         teacher_prompt_text: Literal["own_template", "same"] = "own_template"  # same: teacher reads student's p_text
         keep_text: bool = True  # store meta.prompt_text / meta.response_text
         chat_template_kwargs: dict = {}
+        system_prompt: str | None = None
 
     def _one(self, tok, prompt, response, ctx, side, out, p_text: str | None = None) -> bool:
         if p_text is None:
-            p_text = render_prompt(tok, prompt, self.cfg.use_chat_template, **self.cfg.chat_template_kwargs)
+            p_text = render_prompt(
+                tok,
+                prompt,
+                self.cfg.use_chat_template,
+                system_prompt=self.cfg.system_prompt,
+                **self.cfg.chat_template_kwargs,
+            )
         res = tokenize_prompt_response(
             tok,
             p_text,
@@ -102,7 +126,13 @@ class TokenizeSFT(Transform):
         return True
 
     def _student_prompt_text(self, prompt: Any, ctx: DataContext) -> str:
-        return render_prompt(ctx.student_tokenizer, prompt, self.cfg.use_chat_template, **self.cfg.chat_template_kwargs)
+        return render_prompt(
+            ctx.student_tokenizer,
+            prompt,
+            self.cfg.use_chat_template,
+            system_prompt=self.cfg.system_prompt,
+            **self.cfg.chat_template_kwargs,
+        )
 
     def __call__(self, sample: dict, ctx: DataContext) -> dict | None:
         prompt = sample.get(self.cfg.prompt_field)

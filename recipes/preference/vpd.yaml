@@ -1,4 +1,4 @@
-# Score raw responses, then tokenize the scored artifact.
+# Score raw responses, then tokenize the scored artifact. vpd criterion is implemented in T22.
 name: vpd_listwise
 models:
   student: {path: meta-llama/Llama-3.2-1B-Instruct, dtype: bf16}
@@ -48,3 +48,13 @@ eval:
       path: HuggingFaceH4/ultrafeedback_binarized
       split: test_prefs
       limit: 200
+  - type: lm_eval
+    when: end
+    name: preference
+    tasks:
+      - hellaswag
+      - arc_challenge
+      - truthfulqa_mc2
+      - winogrande
+      - gsm8k
+    batch_size: auto

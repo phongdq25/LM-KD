@@ -1,0 +1,32 @@
+# Standard Self-Play Fine-Tuning evaluation across 7 benchmarks:
+# GSM8K, MATH (minerva_math / math500), MMLU, MMLU-Pro, HellaSwag, Winogrande, IFEval.
+# Official Scenario 7 protocol (Chen et al. ICML 2024, Wu et al. ICLR 2025, APSP).
+eval:
+  - type: dev_loss
+    when: epoch
+    data:
+      type: hf_dataset
+      path: HuggingFaceH4/ultrachat_200k
+      split: test_sft
+      limit: 200
+  - type: lm_eval
+    when: end
+    name: self_play
+    tasks:
+      - gsm8k
+      - minerva_math
+      - mmlu
+      - mmlu_pro
+      - hellaswag
+      - winogrande
+      - ifeval
+    batch_size: auto
+callbacks:
+  - type: evaluate
+    every: epoch
+    load_best_at_end: true
+  - type: checkpoint
+    every: epoch
+    keep_best: 1
+    metric: dev_loss/loss
+    mode: min

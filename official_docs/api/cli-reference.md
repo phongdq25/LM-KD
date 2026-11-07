@@ -87,7 +87,7 @@ lmkd try <loss> [--plugins [PLUGINS ...]]
 
 > [!NOTE]
 > **Scope & Limitations of `lmkd try`**:
-> `lmkd try` executes [`probe_gradient`](file:///data/home/phongdq/projects/LM-KD/lm-kd/src/lmkd/scaffold/probe.py#L34-L49) with a minimal synthetic batch (`2x4` shape with `student.input_ids` and `student.labels`) and a mock `torch.nn.Identity()` model.
+> `lmkd try` executes [`probe_gradient`](../../src/lmkd/scaffold/probe.py#L34-L49) with a minimal synthetic batch (`2x4` shape with `student.input_ids` and `student.labels`) and a mock `torch.nn.Identity()` model.
 > - **Supported:** Stateless, logits-only divergence losses (e.g., `fkl`, `rkl`, `jsd`, `token_kd`, `nll`, `topk_kd`).
 > - **Unsupported:** Criteria requiring auxiliary projection modules (`mta`, `mol`, `emo`), transformer layers (`dskd`), token alignment graphs (`alm`, `escot`), or preference/rollout structures (`adpa`, `luffy`).
 > - For complex criteria, use **`lmkd check --preflight`** or the fast CPU tiny smoke test (`pytest tests/e2e_tiny/test_<name>_e2e.py`).

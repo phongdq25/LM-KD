@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from baselines.same_tokenizer import fdd
+from baselines.same_tokenizer import distillm2, fdd
+from baselines.same_tokenizer.distillm2 import (
+    DistiLLM2,
+    DistiLLM2Criterion,
+    DistiLLM2Producer,
+    compute_dynamic_alpha
+)
 from baselines.same_tokenizer.fdd import FDD, FDDCriterion, compute_fdd_loss, soft_label_distill_loss
 
 __all__ = [
@@ -11,5 +17,9 @@ __all__ = [
     "FDDCriterion",
     "compute_fdd_loss",
     "soft_label_distill_loss",
+    "distillm2",
+    "DistiLLM2",
+    "DistiLLM2Criterion",
+    "DistiLLM2Producer",
+    "compute_dynamic_alpha"
 ]
-

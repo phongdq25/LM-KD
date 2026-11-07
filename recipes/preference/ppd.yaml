@@ -48,4 +48,14 @@ eval:
       path: HuggingFaceH4/ultrafeedback_binarized
       split: test_prefs
       limit: 200
+  - type: lm_eval
+    when: end
+    name: preference
+    tasks:
+      - hellaswag
+      - arc_challenge
+      - truthfulqa_mc2
+      - winogrande
+      - gsm8k
+    batch_size: auto
 

@@ -118,3 +118,210 @@ def test_pure_functions_no_runtime():
     scored = score_generations(rows, grader=grader, ks=[1])
     assert scored["pass@1"] == 0.5
     assert scored["any_correct"] == 1.0
+
+
+def test_render_prompt_system_and_chat_template():
+    from unittest.mock import MagicMock
+
+    from lmkd.data.transforms.tokenize import render_prompt
+
+    tok = MagicMock()
+    tok.chat_template = "{% for m in messages %}{{ m.role }}: {{ m.content }}\n{% endfor %}"
+
+    def mock_apply_chat(messages, tokenize=False, add_generation_prompt=True, **kwargs):
+        res = ""
+        for m in messages:
+            res += f"<{m['role']}>{m['content']}</{m['role']}>"
+        if kwargs.get("enable_thinking") is False:
+            res += "<no_think>"
+        if add_generation_prompt:
+            res += "<gen>"
+        return res
+
+    tok.apply_chat_template.side_effect = mock_apply_chat
+
+    # 1. Plain string without chat template
+    res = render_prompt(tok, "hello", use_chat_template=False)
+    assert res == "hello"
+
+    # 2. Plain string with system prompt, no chat template
+    res = render_prompt(tok, "hello", use_chat_template=False, system_prompt="be concise")
+    assert res == "be concise\n\nhello"
+
+    # 3. Chat template with system prompt and chat_template_kwargs
+    res = render_prompt(
+        tok,
+        "hello",
+        use_chat_template=True,
+        system_prompt="be concise",
+        enable_thinking=False,
+    )
+    assert res == "<system>be concise</system><user>hello</user><no_think><gen>"
+
+    # 4. Chat messages list with system prompt prepended
+    msgs = [{"role": "user", "content": "hi"}]
+    res = render_prompt(
+        tok,
+        msgs,
+        use_chat_template=True,
+        system_prompt="sys",
+    )
+    assert res == "<system>sys</system><user>hi</user><gen>"
+
+    # 5. Chat messages list with existing system prompt (does not duplicate)
+    msgs_with_sys = [{"role": "system", "content": "orig"}, {"role": "user", "content": "hi"}]
+    res = render_prompt(
+        tok,
+        msgs_with_sys,
+        use_chat_template=True,
+        system_prompt="sys",
+    )
+    assert res == "<system>orig</system><user>hi</user><gen>"
+
+
+def test_generate_for_records_chat_template():
+    from unittest.mock import MagicMock
+
+    from lmkd.eval.generation import generate_for_records
+    from lmkd.rollout.base import Rollout, SamplingSpec
+
+    tok = MagicMock()
+    tok.chat_template = "template"
+    tok.bos_token_id = 1
+    tok.apply_chat_template.side_effect = lambda msgs, **kwargs: (
+        f"<sys>{msgs[0]['content']}</sys><user>{msgs[1]['content']}</user>"
+        if len(msgs) > 1 and msgs[0]["role"] == "system"
+        else f"<user>{msgs[0]['content']}</user>"
+    ) + ("<no_think>" if kwargs.get("enable_thinking") is False else "")
+
+    def fake_tokenize(text, add_special_tokens=False):
+        return {"input_ids": [100, 101]}
+
+    tok.side_effect = fake_tokenize
+
+    rt = MagicMock()
+    rt.student_tokenizer = tok
+
+    engine = MagicMock()
+    engine.generate.side_effect = lambda ids, spec: [
+        [Rollout(prompt_ids=p, response_ids=[200], text="response")] for p in ids
+    ]
+    rt.rollout = engine
+
+    records = [{"question": "What is 2+2?"}]
+    sampling = SamplingSpec(max_new_tokens=10)
+
+    rollouts = generate_for_records(
+        rt,
+        records,
+        sampling,
+        engine_spec=None,
+        use_chat_template=True,
+        chat_template_kwargs={"enable_thinking": False},
+        system_prompt="Math expert",
+    )
+
+    assert len(rollouts) == 1
+    assert rollouts[0][0].text == "response"
+    assert engine.generate.called
+    prompt_ids_passed = engine.generate.call_args[0][0]
+    # bos_token_id (1) prepended
+    assert prompt_ids_passed == [[1, 100, 101]]
+    tok.apply_chat_template.assert_called_with(
+        [{"role": "system", "content": "Math expert"}, {"role": "user", "content": "What is 2+2?"}],
+        tokenize=False,
+        add_generation_prompt=True,
+        enable_thinking=False,
+    )
+
+
+def test_lm_eval_evaluator_plugin(tmp_path):
+    from unittest.mock import MagicMock, patch
+
+    from lmkd.core.registry import EVALUATORS
+
+    evaluator = EVALUATORS.build(
+        {
+            "type": "lm_eval",
+            "name": "benchmarks",
+            "tasks": ["hellaswag", "gsm8k"],
+            "batch_size": 2,
+        }
+    )
+
+    rt = MagicMock()
+    rt.engine.is_main = True
+    rt.engine.device = "cpu"
+    rt.state.step = 10
+    rt.config.train.output_dir = str(tmp_path)
+    rt.unwrap_model.return_value = MagicMock()
+    rt.student_tokenizer = MagicMock()
+
+    mock_res = {
+        "results": {
+            "hellaswag": {
+                "acc,none": 0.65,
+                "acc_norm,none": 0.70,
+                "acc_norm_stderr,none": 0.01,
+            },
+            "gsm8k": {
+                "exact_match,strict-match": 0.50,
+            },
+        }
+    }
+
+    with (
+        patch("lm_eval.models.huggingface.HFLM") as mock_hflm,
+        patch("lm_eval.simple_evaluate", return_value=mock_res) as mock_eval,
+    ):
+        metrics = evaluator.evaluate(rt)
+
+    assert metrics["benchmarks/hellaswag"] == 0.70
+    assert metrics["benchmarks/gsm8k"] == 0.50
+    assert metrics["benchmarks/avg"] == 0.60
+    assert metrics["benchmarks/hellaswag/acc_norm"] == 0.70
+    assert (tmp_path / "eval" / "benchmarks" / "step-10" / "lm_eval_summary.json").exists()
+
+
+def test_lm_eval_evaluator_vllm_backend(tmp_path):
+    from unittest.mock import MagicMock, patch
+
+    from lmkd.core.registry import EVALUATORS
+
+    evaluator = EVALUATORS.build(
+        {
+            "type": "lm_eval",
+            "backend": "vllm",
+            "tasks": ["hellaswag"],
+            "batch_size": "auto",
+        }
+    )
+
+    rt = MagicMock()
+    rt.engine.is_main = True
+    rt.engine.device = "cuda:0"
+    rt.state.step = 5
+    rt.config.train.output_dir = str(tmp_path)
+    rt.config.models.student.path = str(tmp_path)
+    rt.unwrap_model.return_value = MagicMock()
+    rt.student_tokenizer = MagicMock()
+
+    mock_res = {
+        "results": {
+            "hellaswag": {
+                "acc_norm,none": 0.75,
+            },
+        }
+    }
+
+    with (
+        patch("lm_eval.models.vllm_causallms.VLLM") as mock_vllm,
+        patch("lm_eval.simple_evaluate", return_value=mock_res) as mock_eval,
+    ):
+        metrics = evaluator.evaluate(rt)
+
+    assert metrics["lm_eval/hellaswag"] == 0.75
+    assert mock_vllm.called
+
+
+

@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from lmkd.core.registry import ROLLOUT
+from lmkd.data.transforms.tokenize import render_prompt
 from lmkd.rollout.base import Rollout, SamplingSpec
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,10 @@ def generate_for_records(
     sampling: SamplingSpec,
     engine_spec: dict | str | None,
     prompt_ids_fn: Any = None,
+    *,
+    use_chat_template: bool = False,
+    chat_template_kwargs: dict[str, Any] | None = None,
+    system_prompt: str | None = None,
 ) -> list[list[Rollout]]:
     """Generate rollouts for evaluation records, syncing weights and decoding tokens.
 
@@ -53,14 +58,27 @@ def generate_for_records(
     if prompt_ids_fn is not None:
         prompt_ids_list = [prompt_ids_fn(r) for r in records]
     else:
-        prompts = [str(r.get("prompt", r.get("question", ""))) for r in records]
         tok = getattr(rt, "student_tokenizer", None)
         if tok is None:
             raise ValueError("Runtime does not have student_tokenizer for prompt encoding.")
         bos_id = getattr(tok, "bos_token_id", None)
         prompt_ids_list = []
-        for p in prompts:
-            ids = tok(p, add_special_tokens=False)["input_ids"]
+        tmpl_kwargs = chat_template_kwargs or {}
+        should_use_chat = use_chat_template or bool(tmpl_kwargs)
+
+        for r in records:
+            raw_p = r.get("prompt")
+            if raw_p is None:
+                raw_p = r.get("question") or r.get("instruction") or r.get("messages") or r.get("conversations") or ""
+
+            rendered = render_prompt(
+                tok,
+                raw_p,
+                use_chat_template=should_use_chat,
+                system_prompt=system_prompt,
+                **tmpl_kwargs,
+            )
+            ids = tok(rendered, add_special_tokens=False)["input_ids"]
             if bos_id is not None and (not ids or ids[0] != bos_id):
                 ids = [bos_id] + ids
             prompt_ids_list.append(ids)

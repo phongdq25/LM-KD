@@ -1,4 +1,4 @@
-# Replace model/data paths with local checkpoints and records.
+# Replace model/data paths with local checkpoints and records. compressed_kl is implemented in T22.
 name: dckd_listwise
 models:
   student: {path: meta-llama/Llama-3.2-1B-Instruct, dtype: bf16}
@@ -47,3 +47,13 @@ eval:
       path: HuggingFaceH4/ultrafeedback_binarized
       split: test_prefs
       limit: 200
+  - type: lm_eval
+    when: end
+    name: preference
+    tasks:
+      - hellaswag
+      - arc_challenge
+      - truthfulqa_mc2
+      - winogrande
+      - gsm8k
+    batch_size: auto

@@ -45,6 +45,7 @@ def _catalogue():
             "csd",
             "gkd",
             "distillm",
+            "distillm2",
             "csd_on_policy",
         ],
         "cross_tokenizer": [
