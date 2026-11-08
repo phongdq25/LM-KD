@@ -333,7 +333,6 @@ loss:
                                         #     - sra: Sequence-level Representation Alignment
                                         #     - mcw_kd: Min-Cost Wasserstein KD
                                         #     - residualkd, residual_pretrain: Two-phase Residual Projector KD
-                                        #     - impact: Information-Maximizing Projection and Alignment of Cross-Tokenizer
                                         #   * Long-CoT Reasoning:
                                         #     - region_nll: SARW prefix/continuation region weighting
                                         #     - transition_loss: Transition state prediction between reasoning steps

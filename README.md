@@ -134,12 +134,12 @@ Scenarios are a separate axis from the taxonomy. A **scenario** is a standardize
 
 | # | Scenario | Teacher → Student pairs | Training data → evaluation | Details |
 | :-: | :--- | :--- | :--- | :--- |
-| 1 | **Sentence embedding distillation** | Qwen3-Embedding (0.6B, 4B), BGE-M3 → MiniLMv2, BERT-base | Emotion/WiC/STSB → 9 MTEB tasks (classification, pair classification, STS) | [Scenario 1](official_docs/scenarios/1-sentence-embedding.md) |
+| 1 | **Sentence embedding distillation** | Qwen3-Embedding-0.6B → MiniLMv2-L6, BGE-M3 → MiniLMv2-L12, Qwen3-Embedding-4B → BERT-base | AllNLI, Wikipedia → 9 MTEB tasks (classification, pair classification, STS) | [Scenario 1](official_docs/scenarios/1-sentence-embedding.md) |
 | 2 | **Same-tokenizer instruction distillation** | GPT-2 (1.5B → 120M), Qwen1.5 (1.8B → 0.5B), OPT (6.7B → 1.3B) | Dolly-15k → Dolly, Self-Instruct, Vicuna, Super-NaturalInstructions (ROUGE-L) | [Scenario 2](official_docs/scenarios/2-same-tokenizer.md) |
-| 3 | **Cross-tokenizer distillation** | Qwen1.5 / Qwen2.5 / Mistral → GPT-2, OPT, TinyLLaMA (5 pairs) | Dolly-15k → Dolly, Self-Instruct, Vicuna, Super-NaturalInstructions (ROUGE-L) | [Scenario 3](official_docs/scenarios/3-cross-tokenizer.md) |
+| 3 | **Cross-tokenizer distillation** | Qwen1.5-1.8B → GPT-2 120M and 0.4B; Qwen2.5-7B → GPT-2 1.5B and OPT-2.7B; Mistral-7B → TinyLLaMA-1.1B | Dolly-15k → Dolly, Self-Instruct, Vicuna, Super-NaturalInstructions (ROUGE-L) | [Scenario 3](official_docs/scenarios/3-cross-tokenizer.md) |
 | 4 | **Long-CoT reasoning distillation** | DeepSeek-R1 → R1-Distill-Qwen-1.5B, Qwen2.5-7B-Instruct, Qwen3-8B | s1K-1.1 → AIME 2024/2025, AMC 12, MATH-500 (pass@1, pass@3) | [Scenario 4](official_docs/scenarios/4-long-cot.md) |
-| 5 | **On-policy self-distillation for reasoning** | Qwen3-8B, Olmo3-7B-Think, Qwen3-4B (no external teacher) | GSM8K, MATH, NuminaMath prompts → AIME 2025, AIME 2026, HMMT 2025 (accuracy) | [Scenario 5](official_docs/scenarios/5-opsd.md) |
-| 6 | **Reward-model-free preference distillation** | Llama-3.1-8B → Llama-3.2-1B, Qwen3-8B → 1.7B, Qwen3-1.7B → 0.6B | UltraFeedback Binarized → HellaSwag, ARC, TruthfulQA, Winogrande, GSM8K | [Scenario 6](official_docs/scenarios/6-preference-distillation.md) |
+| 5 | **On-policy self-distillation for reasoning** | Qwen3-8B, Olmo3-7B-Think, Qwen3-4B (no external teacher) | GSM8K, MATH, NuminaMath-CoT → AIME 2025, AIME 2026, HMMT 2025 (accuracy) | [Scenario 5](official_docs/scenarios/5-opsd.md) |
+| 6 | **Reward-model-free preference distillation** | Llama-3.1-8B → Llama-3.2-1B, Qwen3-8B → Qwen3-1.7B, Qwen3-1.7B → Qwen3-0.6B | UltraFeedback Binarized → HellaSwag, ARC, TruthfulQA, Winogrande, GSM8K | [Scenario 6](official_docs/scenarios/6-preference-distillation.md) |
 | 7 | **Self-play fine-tuning** | Qwen2.5-1.5B, Gemma-2-2B, Qwen3-4B | UltraChat-200k, SPIN_iter0 → GSM8K, MATH, MMLU, MMLU-Pro, HellaSwag, Winogrande, IFEval | [Scenario 7](official_docs/scenarios/7-self-play-fine-tuning.md) |
 
 Because the two axes are independent, a scenario can compare methods that sit in different taxonomy branches (for instance, Scenario 5 compares SFT, GRPO and OPSD/RLSD/SDPO), and a taxonomy branch can be evaluated across several scenarios.
@@ -149,8 +149,8 @@ Because the two axes are independent, a scenario can compare methods that sit in
 ### Option A: `uv` (recommended)
 
 ```bash
-git clone https://github.com/<your-org>/LM-KD.git
-cd LM-KD/lm-kd
+git clone https://github.com/phongdq25/LM-KD.git
+cd LM-KD
 
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv --python 3.11
@@ -166,7 +166,7 @@ conda activate lmkd
 
 pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cu128
 
-cd lm-kd
+cd LM-KD
 pip install -e ".[dev]"
 ```
 
@@ -185,7 +185,7 @@ bash scripts/run_baseline.sh --all --check
 
 ## Quickstart
 
-A first end-to-end run (Qwen3-0.6B student from Qwen3-4B teacher on Dolly-15k with Forward KL) takes roughly 10 minutes on a single GPU. Full walkthrough: [Quickstart](official_docs/getting-started/quickstart.md).
+A first end-to-end run (Qwen3-0.6B student from Qwen3-4B-Instruct-2507 on Dolly-15k with Forward KL) takes roughly 10 minutes on a single GPU. Full walkthrough: [Quickstart](official_docs/getting-started/quickstart.md).
 
 **1. Sanity-check a loss in seconds (no model or dataset download):**
 
@@ -416,7 +416,7 @@ Learn more: [Core Abstractions](official_docs/architecture/core-abstractions.md)
 ## Repository Structure
 
 ```text
-lm-kd/
+LM-KD/
 ├── src/
 │   ├── lmkd/               # Core framework
 │   │   ├── core/           # Batch, Registry, Config, State
