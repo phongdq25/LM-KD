@@ -1,0 +1,29 @@
+# Standard Preference Distillation evaluation (5 benchmarks: HellaSwag, ARC, TruthfulQA, Winogrande, GSM8K).
+# Evaluates dev loss every epoch for checkpointing, and runs full lm-eval benchmark suite at the end.
+eval:
+  - type: dev_loss
+    when: epoch
+    data:
+      type: hf_dataset
+      path: HuggingFaceH4/ultrafeedback_binarized
+      split: test_prefs
+      limit: 200
+  - type: lm_eval
+    when: end
+    name: preference
+    tasks:
+      - hellaswag
+      - arc_challenge
+      - truthfulqa_mc2
+      - winogrande
+      - gsm8k
+    batch_size: auto
+callbacks:
+  - type: evaluate
+    every: epoch
+    load_best_at_end: true
+  - type: checkpoint
+    every: epoch
+    keep_best: 1
+    metric: dev_loss/loss
+    mode: min

@@ -1,0 +1,158 @@
+name: dwa_mta_gpt2_from_qwen
+models:
+  student:
+    path: openai-community/gpt2
+    dtype: bf16
+    task: causal_lm
+    placement: same_device
+  teacher:
+    path: Qwen/Qwen2.5-1.5B-Instruct
+    dtype: bf16
+    task: causal_lm
+    placement: same_device
+data:
+  train:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/dolly/train.jsonl
+  eval:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/dolly/dev.jsonl
+  transforms:
+  - type: tokenize_sft
+    use_chat_template: false
+    teacher: true
+    teacher_prompt_text: same
+    keep_text: true
+  - type: token_offsets
+    teacher: true
+  - type: align
+    aligner:
+      type: mta_span
+  max_length: 1024
+  padding: dynamic
+  pad_to_multiple_of: 8
+teacher:
+  provider: hf_frozen
+  input: pretokenized
+producer:
+  type: dataset
+algorithm: standard
+step:
+  type: standard
+loss:
+  aggregator: weighted_sum
+  terms:
+  - criterion: nll
+    weight: 0.5
+    alias: nll
+  - criterion: dwa_kd
+    weight: 0.5
+    alias: kd
+    params:
+      temperature: 2.0
+      teacher_temperature: 1.0
+      kd_objective: skewed_reverse_kl
+      skew_lambda: 0.1
+      kd_warmup_steps: 300
+      dtw_rate: 0.2
+      dtw_gamma: 2.0
+      dtw_band_width: 5.0
+      dtw_band_penalty: 1.0
+      dtw_band_center_blend: 0.7
+      dtw_band_entropy_coef: 2.0
+  - criterion: mta
+    weight: 1.0
+    alias: mta
+    params:
+      student_layers:
+      - -4
+      - -3
+      - -2
+      - -1
+      teacher_layers:
+      - -4
+      - -3
+      - -2
+      - -1
+      split_layer_mapping:
+      - 0
+      - 2
+      - 4
+      w_span_loss: 1.0
+      token_loss_weight: 0.0
+      mode: cross_tokenizer
+optim:
+  lr: 2.0e-05
+  weight_decay: 0.0
+  groups:
+  - name: projector
+    match:
+      group: projector
+    lr: 0.001
+  - name: no_decay
+    match:
+      ndim_le: 1
+    weight_decay: 0.0
+  - name: default
+    match: {}
+  optimizers:
+    default:
+      type: adamw
+  schedulers:
+  - type: cosine
+    warmup_ratio: 0.03
+    min_lr_ratio: 0.1
+grad:
+  clip_norm: 1.0
+engine:
+  type: local
+  device: auto
+  mixed_precision: bf16
+train:
+  output_dir: outputs/dwa_mta
+  epochs: 1.0
+  batch_size: 32
+  micro_batch_size: 4
+  seed: 42
+  log_every: 10
+  save: {}
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev_loss/loss
+  mode: min
+eval:
+- type: dev_loss
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/dolly/dev.jsonl
+  when: epoch
+- type: generation_rouge
+  name: dolly
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/dolly/valid.jsonl
+  when: end
+- type: generation_rouge
+  name: self_inst
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/self-inst/valid.jsonl
+  when: end
+- type: generation_rouge
+  name: vicuna
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/vicuna/valid.jsonl
+  when: end
+- type: generation_rouge
+  name: sinst
+  data:
+    type: jsonl
+    path: datasets/same_cross_tokenizer_data/sinst/11_/valid.jsonl
+  when: end
+

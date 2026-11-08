@@ -1,0 +1,43 @@
+_base_: talas_m.yaml
+name: talas_asam
+step:
+  type: asam
+  rho: 0.05
+optim:
+  groups:
+  - name: projector
+    match:
+      owner: modules
+    lr: 0.0001
+    weight_decay: 0.01
+  - name: default
+    match: {}
+    optimizer: adamw
+    lr: 2.0e-05
+  optimizers:
+    adamw:
+      type: adamw
+  schedulers:
+  - type: cosine
+    warmup_ratio: 0.1
+    min_lr_ratio: 0.005
+train:
+  output_dir: outputs/talas_asam
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev/avg
+  mode: max
+eval:
+- type: embedding_mteb
+  when: epoch
+  split: validation
+  name: dev
+- type: embedding_mteb
+  when: end
+  split: test
+  name: test

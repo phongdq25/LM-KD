@@ -1,0 +1,14 @@
+optim:
+  lr: 2.0e-5
+  weight_decay: 0.01
+  groups:
+    - {name: projector, match: {owner: modules}, lr: 1.0e-4, weight_decay: 0.01}
+    - {name: edge, match: {regex: '(embeddings|pooler|classifier|head)'}}
+    - {name: norm_bias, match: {regex: '(LayerNorm|bias)'}}
+    - {name: one_d, match: {ndim_le: 1}}
+    - {name: early, match: {layer_range: [0, 3]}}
+    - {name: muon_body, match: {ndim: 2}, optimizer: muon, lr: 1.0e-3}
+    - {name: rest, match: {}}
+  optimizers: {default: {type: adamw}, muon: {type: muon}}
+  schedulers: [{type: cosine, warmup_ratio: 0.05, min_lr_ratio: 0.1}]
+

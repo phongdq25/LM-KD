@@ -1,0 +1,56 @@
+# SPACE: Self-Play via Noise Contrastive Estimation (Wu et al., 2024)
+# Starts from SFT warmup checkpoint M_0 (trained on ultrachat_200k)
+name: space_self_play
+models:
+  student: {path: outputs/self_play/sft_warmup/checkpoint-final, dtype: bf16}
+  teacher: {path: outputs/self_play/sft_warmup/checkpoint-final, dtype: bf16}
+data:
+  max_length: 1024
+  eval:
+    type: hf_dataset
+    path: HuggingFaceH4/ultrachat_200k
+    split: test_sft
+    limit: 200
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: hf_dataset, path: UCLA-AGI/SPIN_iter0, split: train}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
+    dataset: true
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: hf_frozen, input: same}
+loss:
+  terms:
+    - {criterion: space, weight: 1.0, params: {mu: 1.0}}
+train: {output_dir: outputs/self_play/space, batch_size: 16, micro_batch_size: 2}
+optim: {lr: 5e-7}
+callbacks:
+  - type: evaluate
+    every: epoch
+    load_best_at_end: true
+  - type: checkpoint
+    every: epoch
+    keep_best: 1
+    metric: dev_loss/loss
+    mode: min
+eval:
+  - type: dev_loss
+    when: epoch
+    data:
+      type: hf_dataset
+      path: HuggingFaceH4/ultrachat_200k
+      split: test_sft
+      limit: 200
+  - type: lm_eval
+    when: end
+    name: self_play
+    tasks:
+      - gsm8k
+      - minerva_math
+      - mmlu
+      - mmlu_pro
+      - hellaswag
+      - winogrande
+      - ifeval
+    batch_size: auto

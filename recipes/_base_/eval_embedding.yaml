@@ -1,0 +1,21 @@
+# Standard Sentence Embedding evaluation on 9 MTEB benchmark datasets (Classification, Pair Classification, STS).
+# split: validation (when: epoch) evaluates 9 validation sets and selects best checkpoint by 9-task average (dev/avg).
+# split: test (when: end) computes final evaluation scores on the 9 official test sets.
+eval:
+  - type: embedding_mteb
+    when: epoch
+    split: validation
+    name: dev
+  - type: embedding_mteb
+    when: end
+    split: test
+    name: test
+callbacks:
+  - type: evaluate
+    every: epoch
+    load_best_at_end: true
+  - type: checkpoint
+    every: epoch
+    keep_best: 1
+    metric: dev/avg
+    mode: max

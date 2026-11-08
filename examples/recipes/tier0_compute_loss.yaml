@@ -1,0 +1,9 @@
+# Tier 0: the whole loss is one function that runs the models itself
+# (examples/my_losses.py::example_ce_kd), like transformers.Trainer.compute_loss.
+#   lmkd train -c examples/recipes/tier0_compute_loss.yaml --set train.max_steps=10
+_base_: ../../recipes/same_tokenizer/fkl.yaml
+name: example_tier0_ce_kd
+imports: [../my_losses.py]
+algorithm: {type: compute_loss, fn: example_ce_kd, kwargs: {kd_weight: 0.5}}
+loss: {_delete_: true, aggregator: weighted_sum, terms: []}   # criteria could still be added here
+train: {output_dir: outputs/example_tier0_ce_kd}

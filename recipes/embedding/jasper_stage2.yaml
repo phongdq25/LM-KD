@@ -1,0 +1,110 @@
+name: jasper_stage2
+models:
+  student:
+    path: nreimers/MiniLMv2-L6-H384-distilled-from-BERT-Large
+    task: encoder
+    dtype: fp32
+    tokenizer: bert-base-uncased
+    trainable: true
+data:
+  train:
+    type: csv
+    path: datasets/embedding_data/train_full.csv
+  max_length: 256
+pipeline:
+- stage: prepare_dataset
+  name: data
+  source:
+    type: csv
+    path: datasets/embedding_data/train_full.csv
+  transforms:
+  - type: tokenize_text
+    keep_text: true
+  dataset: true
+- stage: embed_teacher
+  name: teacher_emb
+  inputs:
+    data: data
+  model: Qwen/Qwen3-Embedding-0.6B
+  pooling: last
+teacher:
+  provider:
+    type: embedding_store
+    node: teacher_emb
+  input: same
+producer:
+  type: dataset
+algorithm: standard
+step:
+  type: standard
+loss:
+  aggregator: weighted_sum
+  terms:
+  - criterion: simcse_unsupervised
+    weight: 0.7
+    params:
+      temperature: 0.05
+      pooler: cls
+  - criterion: jasper
+    weight: 0.3
+    params:
+      teacher_dim: 1024
+      pooler: cls
+      projector_ckpt: outputs/jasper/stage1/checkpoint-final/modules.pt
+      w_cos: 0.5
+      w_sim: 2.0
+      w_tri: 0.5
+      mrl_dims:
+      - 512
+      - 256
+      - 128
+      w_mrl_sim: 2.0
+      w_mrl_tri: 0.5
+optim:
+  lr: 2.0e-05
+  weight_decay: 0.01
+  groups:
+  - name: projector
+    match:
+      owner: modules
+    lr: 0.0001
+    weight_decay: 0.01
+  - name: default
+    match: {}
+  optimizers:
+    adamw:
+      type: adamw
+  schedulers:
+  - type: cosine
+    warmup_ratio: 0.06
+grad:
+  clip_norm: 1.0
+engine:
+  type: local
+  device: auto
+  mixed_precision: fp32
+train:
+  output_dir: outputs/jasper/stage2
+  epochs: 5
+  batch_size: 32
+  micro_batch_size: 32
+  seed: 42
+  log_every: 10
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev/avg
+  mode: max
+eval:
+- type: embedding_mteb
+  when: epoch
+  split: validation
+  name: dev
+- type: embedding_mteb
+  when: end
+  split: test
+  name: test

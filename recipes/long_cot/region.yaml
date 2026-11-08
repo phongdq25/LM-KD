@@ -1,0 +1,62 @@
+_base_: sarw.yaml
+name: long_cot_region
+pipeline:
+- stage: prepare_dataset
+  name: prepare
+  source:
+    type: hf_dataset
+    path: simplescaling/s1K-1.1
+    split: train
+  transforms:
+  - type: render_cot
+  - type: tokenize_cot
+  - type: segment
+    segmenter: sentence
+- stage: spectral_capture
+  name: capture
+  inputs:
+    data: prepare
+- stage: build_weights
+  name: weights
+  inputs:
+    data: prepare
+    signals: capture
+  chain:
+  - type: select_energy_top_p
+    p: 0.95
+  - type: provenance
+  - type: allocate_region
+    variant: region-stable
+  dataset: true
+train:
+  output_dir: outputs/long_cot/region
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev_loss/loss
+  mode: min
+eval:
+- type: dev_loss
+  when: epoch
+  data:
+    type: hf_dataset
+    path: simplescaling/s1K-1.1
+    split: train
+    limit: 50
+- type: math_passk
+  name: math
+  when: end
+  benchmarks:
+  - aime25
+  - aime24
+  - amc12
+  - math500
+  n: 8
+  ks:
+  - 1
+  - 3
+  grader: math_verify

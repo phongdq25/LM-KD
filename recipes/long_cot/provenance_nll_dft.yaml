@@ -1,0 +1,100 @@
+name: long_cot_provenance_nll_dft
+models:
+  student:
+    path: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+data:
+  max_length: 32768
+  eval:
+    type: hf_dataset
+    path: simplescaling/s1K-1.1
+    split: train
+    limit: 50
+pipeline:
+- stage: prepare_dataset
+  name: prepare
+  source:
+    type: hf_dataset
+    path: simplescaling/s1K-1.1
+    split: train
+  transforms:
+  - type: render_cot
+  - type: tokenize_cot
+- stage: build_weights
+  name: weights
+  inputs:
+    data: prepare
+  chain:
+  - type: provenance
+    junction_tokens: 0
+  dataset: true
+loss:
+  terms:
+  - criterion: per_source_objective
+    params:
+      objectives:
+        prefix: nll
+        cont: dft
+        junction: nll
+optim:
+  lr: 5.0e-05
+  schedulers:
+  - type: cosine
+    warmup_ratio: 0.1
+    min_lr_ratio: 0.2
+  weight_decay: 0.0
+  groups:
+  - name: no_decay
+    match:
+      ndim_le: 1
+    weight_decay: 0.0
+  - name: default
+    match: {}
+  optimizers:
+    default:
+      type: adamw
+train:
+  output_dir: outputs/long_cot/provenance_nll_dft
+  epochs: 3
+  batch_size: 32
+  micro_batch_size: 1
+  seed: 42
+  log_every: 10
+producer: dataset
+algorithm: standard
+step: standard
+grad:
+  clip_norm: 1.0
+engine:
+  type: local
+  device: auto
+  mixed_precision: bf16
+callbacks:
+- type: evaluate
+  every: epoch
+  load_best_at_end: true
+- type: checkpoint
+  every: epoch
+  keep_best: 1
+  metric: dev_loss/loss
+  mode: min
+eval:
+- type: dev_loss
+  when: epoch
+  data:
+    type: hf_dataset
+    path: simplescaling/s1K-1.1
+    split: train
+    limit: 50
+- type: math_passk
+  name: math
+  when: end
+  benchmarks:
+  - aime25
+  - aime24
+  - amc12
+  - math500
+  n: 8
+  ks:
+  - 1
+  - 3
+  grader: math_verify

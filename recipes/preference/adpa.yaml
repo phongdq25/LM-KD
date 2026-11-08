@@ -1,0 +1,60 @@
+name: adpa_listwise
+models:
+  student: {path: meta-llama/Llama-3.2-1B-Instruct, dtype: bf16}
+data:
+  max_length: 1024
+  eval:
+    type: hf_dataset
+    path: HuggingFaceH4/ultrafeedback_binarized
+    split: test_prefs
+    limit: 200
+pipeline:
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: hf_dataset, path: HuggingFaceH4/ultrafeedback_binarized, split: train_prefs}
+    transforms:
+      - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
+  - stage: teacher_cache
+    name: teacher_cache
+    inputs: {data: prepare}
+    dataset: true
+    model: meta-llama/Llama-3.1-8B-Instruct
+    reference_model: meta-llama/Llama-3.2-1B-Instruct
+    kind: adv_sparse
+    k: 50
+    fields: [1]
+producer: {type: listwise, pad_groups_to: 2}
+teacher: {provider: none, input: same}
+loss:
+  terms:
+    - {criterion: adpa, weight: 1.6}
+    - {criterion: chosen_nll, weight: 1.0}
+train: {output_dir: outputs/preference/adpa, batch_size: 32, micro_batch_size: 2}
+optim: {lr: 5e-7}
+callbacks:
+  - type: evaluate
+    every: epoch
+    load_best_at_end: true
+  - type: checkpoint
+    every: epoch
+    keep_best: 1
+    metric: dev_loss/loss
+    mode: min
+eval:
+  - type: dev_loss
+    when: epoch
+    data:
+      type: hf_dataset
+      path: HuggingFaceH4/ultrafeedback_binarized
+      split: test_prefs
+      limit: 200
+  - type: lm_eval
+    when: end
+    name: preference
+    tasks:
+      - hellaswag
+      - arc_challenge
+      - truthfulqa_mc2
+      - winogrande
+      - gsm8k
+    batch_size: auto
