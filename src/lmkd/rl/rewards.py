@@ -96,6 +96,7 @@ class MathVerify(Verifier):
         format_weight: float = 0.0
         answer_field: str = "answer"
         timeout_s: float = Field(default=10.0, gt=0)
+        correctness_feedback: bool = False
 
     def __call__(self, prompts, responses, meta):
         self.validate_rows(prompts, responses, meta)
@@ -114,7 +115,7 @@ class MathVerify(Verifier):
                 except (Exception, TimeoutError, SystemExit):
                     # Symbols are case-sensitive; only backend failures use the source's whitespace fallback.
                     acc = float(bool(pred.strip()) and "".join(pred.split()) == "".join(gold.split()))
-                if not acc:
+                if not acc and self.cfg.correctness_feedback:
                     feedback = "Your boxed answer is incorrect."
             if row.get("truncated", row.get("meta.truncated", False)):
                 feedback = "Your response was truncated."

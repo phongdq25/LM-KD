@@ -124,3 +124,27 @@ def test_tokenize_sft_messages_field(tiny_models):
     assert "student.input_ids" in res
     assert res["meta.response_text"] == "Hi there!"
 
+
+def test_tokenize_listwise_sppo_scores(tiny_models):
+    from lmkd.data.transforms.listwise import TokenizeListwise
+
+    ctx = _context(tiny_models)
+    tok_list = TokenizeListwise(TokenizeListwise.Config(format_plain_prompts=False))
+    sample = {
+        "prompt": "Q: 2+2",
+        "chosen": " A: 4",
+        "rejected": " A: 5",
+        "chosen_probs_win": 0.85,
+        "chosen_probs_lose": 0.15,
+        "sim_score": 0.42,
+    }
+    res = tok_list(sample, ctx)
+    assert res is not None
+    members = res["group.members"]
+    assert len(members) == 2
+    assert members[0]["pref.chosen_probs_win"] == 0.85
+    assert members[0]["pref.chosen_probs_lose"] == 0.15
+    assert members[0]["pref.sim_score"] == 0.42
+    assert members[1]["pref.sim_score"] == 0.42
+
+

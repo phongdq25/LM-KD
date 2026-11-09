@@ -86,7 +86,7 @@ def test_tier0_recipe_with_imports_via_cli(base_recipe, tiny_models, tmp_path):
     assert raw["imports"] == [str((EXAMPLES / "my_losses.py").resolve())]  # relative to the YAML file
     tiny = _kd_recipe(base_recipe, tiny_models)
     tiny["train"]["output_dir"] = str(tmp_path / "out")
-    r = deep_merge(raw, {k: tiny[k] for k in ("models", "data", "engine", "optim", "train")})
+    r = deep_merge(raw, {k: tiny[k] for k in ("models", "data", "engine", "optim", "train")} | {"eval": []})
     r["optim"]["schedulers"] = [{"type": "constant"}]
     path = tmp_path / "r.yaml"
     path.write_text(json.dumps(r))

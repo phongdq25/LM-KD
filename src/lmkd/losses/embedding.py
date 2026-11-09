@@ -263,10 +263,13 @@ class DimWeightedMSE(Criterion):
         proj = self.aux(ctx).proj
         s = proj(pool)
         t = ctx.teacher.embedding
-        std_embeddings = t.std(dim=0)
-        mean_std = std_embeddings.mean()
-        std_scaled = std_embeddings / mean_std.clamp(min=1e-9)
-        weights = std_scaled**self.cfg.power
+        if t.shape[0] <= 1:
+            weights = torch.ones_like(t[0])
+        else:
+            std_embeddings = t.std(dim=0, correction=0)
+            mean_std = std_embeddings.mean()
+            std_scaled = std_embeddings / mean_std.clamp(min=1e-9)
+            weights = std_scaled**self.cfg.power
         squared_diff = (s - t) ** 2
         weighted_squared_diff = squared_diff * weights
         loss = weighted_squared_diff.mean()

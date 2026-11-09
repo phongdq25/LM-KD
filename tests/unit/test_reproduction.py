@@ -83,8 +83,8 @@ def test_stage_models_and_sources_are_overridden_without_changing_artifact_sourc
     assert cfg.pipeline[0]["source"]["path"] == str(Path("pairs.jsonl").resolve())
     assert cfg.pipeline[1]["model"] == "T"
     (cfg,) = resolve_jobs("vpd", tmp_path, teacher="T", data="pairs.jsonl")
-    assert cfg.pipeline[1]["model"] == "T"
-    assert cfg.pipeline[2]["source"]["node"] == "scores"
+    assert cfg.pipeline[2]["model"] == "T"
+    assert cfg.pipeline[3]["source"]["node"] == "scores"
 
 
 def test_ctpd_uses_reference_for_online_scoring(tmp_path):

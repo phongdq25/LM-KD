@@ -189,7 +189,12 @@ class Runtime:
         try:
             for ev in self.evaluators:
                 when = getattr(getattr(ev, "cfg", None), "when", "always")
-                if phase == "always" or when == "always" or when == phase:
+                if (
+                    phase == "always"
+                    or (phase != "end_only" and when == "always")
+                    or when == phase
+                    or (phase == "end_only" and when == "end")
+                ):
                     res = ev.evaluate(self) if hasattr(ev, "evaluate") else ev(self)
                     if res:
                         metrics.update(res)
@@ -207,6 +212,17 @@ class Runtime:
         from lmkd.train.checkpointing import save_checkpoint
 
         return save_checkpoint(self, tag)
+
+    def offload_optimizer(self) -> Any:
+        """Context manager to offload optimizer state to pinned CPU memory during rollout/eval."""
+        import contextlib
+
+        from lmkd.train.optimizer_offload import get_or_create_offloader
+
+        offloader = get_or_create_offloader(self)
+        if offloader is None:
+            return contextlib.nullcontext()
+        return offloader
 
     def unwrap_model(self) -> nn.Module:
         """The raw HF/PEFT student (for generation, save_pretrained, custom eval)."""

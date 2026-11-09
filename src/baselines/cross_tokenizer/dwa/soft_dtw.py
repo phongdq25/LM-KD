@@ -10,7 +10,7 @@ Provides:
 from __future__ import annotations
 
 import math
-from typing import Any, Literal
+from typing import Any, Literal, overload
 
 import numpy as np
 import torch
@@ -36,7 +36,8 @@ try:
     def _patch_numba_ctx_get_device():
         import ctypes
         try:
-            from numba.cuda.cudadrv import driver as _drv_mod, drvapi as _drvapi
+            from numba.cuda.cudadrv import driver as _drv_mod
+            from numba.cuda.cudadrv import drvapi as _drvapi
 
             _drv = _drv_mod.driver  # module-level Driver singleton
             _drv.ensure_initialized()
@@ -47,7 +48,7 @@ try:
             def _wrapped(*args):
                 _drv._check_ctypes_error("cuCtxGetDevice", _fn(*args))
 
-            setattr(_drv, "cuCtxGetDevice", _wrapped)
+            _drv.cuCtxGetDevice = _wrapped
         except Exception:
             pass
 
@@ -79,15 +80,14 @@ if _NUMBA_CUDA_AVAILABLE:
             J = max(0, min(p - tid, max_j - 1))
             i = I + 1
             j = J + 1
-            if I + J == p and (I < max_i and J < max_j):
-                if not (abs(i - j) > bandwidth > 0):
-                    r0 = -R[b, i - 1, j - 1] * inv_gamma
-                    r1 = -R[b, i - 1, j] * inv_gamma
-                    r2 = -R[b, i, j - 1] * inv_gamma
-                    rmax = max(max(r0, r1), r2)
-                    rsum = math.exp(r0 - rmax) + math.exp(r1 - rmax) + math.exp(r2 - rmax)
-                    softmin = -gamma * (math.log(rsum) + rmax)
-                    R[b, i, j] = D[b, i - 1, j - 1] + softmin
+            if p == I + J and (max_i > I and max_j > J) and not (0 < bandwidth < abs(i - j)):
+                r0 = -R[b, i - 1, j - 1] * inv_gamma
+                r1 = -R[b, i - 1, j] * inv_gamma
+                r2 = -R[b, i, j - 1] * inv_gamma
+                rmax = max(max(r0, r1), r2)
+                rsum = math.exp(r0 - rmax) + math.exp(r1 - rmax) + math.exp(r2 - rmax)
+                softmin = -gamma * (math.log(rsum) + rmax)
+                R[b, i, j] = D[b, i - 1, j - 1] + softmin
             cuda.syncthreads()
 
     @cuda.jit
@@ -102,10 +102,10 @@ if _NUMBA_CUDA_AVAILABLE:
             J = max(0, min(rev_p - tid, max_j - 1))
             i = I + 1
             j = J + 1
-            if I + J == rev_p and (I < max_i and J < max_j):
+            if rev_p == I + J and (max_i > I and max_j > J):
                 if math.isinf(R[k, i, j]):
                     R[k, i, j] = -math.inf
-                if not (abs(i - j) > bandwidth > 0):
+                if not (0 < bandwidth < abs(i - j)):
                     a = math.exp((R[k, i + 1, j] - R[k, i, j] - D[k, i + 1, j]) * inv_gamma)
                     b = math.exp((R[k, i, j + 1] - R[k, i, j] - D[k, i, j + 1]) * inv_gamma)
                     c = math.exp((R[k, i + 1, j + 1] - R[k, i, j] - D[k, i + 1, j + 1]) * inv_gamma)
@@ -383,16 +383,40 @@ class SoftDTW(nn.Module):
 
     def _select_func(self, C: torch.Tensor):
         # Determine whether to use CUDA kernel
-        if self.use_cuda is True or (self.use_cuda is None and self.backend in ("auto", "cuda")):
-            if C.is_cuda and _NUMBA_CUDA_AVAILABLE:
-                max_len = max(C.shape[1], C.shape[2])
-                if max_len <= 1024:
-                    return _SoftDTWCUDA.apply
+        if (
+            (self.use_cuda is True or (self.use_cuda is None and self.backend in ("auto", "cuda")))
+            and C.is_cuda
+            and _NUMBA_CUDA_AVAILABLE
+        ):
+            max_len = max(C.shape[1], C.shape[2])
+            if max_len <= 1024:
+                return _SoftDTWCUDA.apply
         # Numba CPU JIT
         if self.backend == "numba" and _NUMBA_AVAILABLE and not C.is_cuda:
             return _SoftDTWNumba.apply
         # Fallback to PyTorch anti-diagonal
         return None
+
+    @overload
+    def forward_with_cost_matrix(
+        self,
+        C: torch.Tensor,
+        return_alignment: Literal[False] = False,
+    ) -> torch.Tensor: ...
+
+    @overload
+    def forward_with_cost_matrix(
+        self,
+        C: torch.Tensor,
+        return_alignment: Literal[True],
+    ) -> tuple[torch.Tensor, torch.Tensor]: ...
+
+    @overload
+    def forward_with_cost_matrix(
+        self,
+        C: torch.Tensor,
+        return_alignment: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]: ...
 
     def forward_with_cost_matrix(
         self,
@@ -428,6 +452,30 @@ class SoftDTW(nn.Module):
             A = A.clamp_min(0.0)
             A = A / (A.sum(dim=-1, keepdim=True) + 1e-9)
         return val, A
+
+    @overload
+    def forward(
+        self,
+        X: torch.Tensor,
+        Y: torch.Tensor,
+        return_alignment: Literal[False] = False,
+    ) -> torch.Tensor: ...
+
+    @overload
+    def forward(
+        self,
+        X: torch.Tensor,
+        Y: torch.Tensor,
+        return_alignment: Literal[True],
+    ) -> tuple[torch.Tensor, torch.Tensor]: ...
+
+    @overload
+    def forward(
+        self,
+        X: torch.Tensor,
+        Y: torch.Tensor,
+        return_alignment: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]: ...
 
     def forward(
         self,

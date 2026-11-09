@@ -11,7 +11,13 @@ from transformers import AutoTokenizer, GPT2Config, GPT2ForSequenceClassificatio
 from lmkd.pipeline.artifacts import Artifact
 from lmkd.pipeline.io import read_jsonl, write_jsonl
 from lmkd.pipeline.stage import StageContext
-from lmkd.pipeline.stages.preference import Score, pad_mcq_template, pairwise_scores, score_record
+from lmkd.pipeline.stages.preference import (
+    SampleCandidates,
+    Score,
+    pad_mcq_template,
+    pairwise_scores,
+    score_record,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "Awesome-Human-AI-Alignment-main" / "src"))
 from human_alignment.integrations.distillation_data import _pad_mcq_template  # noqa: E402
@@ -101,3 +107,65 @@ def test_score_stage_reward_model(tiny_models, tmp_path):
     )
     stage.run(ctx)
     assert torch.isfinite(torch.tensor(read_jsonl(outgoing / "records.jsonl")[0]["rewards"])).all()
+
+
+def test_sample_candidates_stage(tiny_models, tmp_path):
+    incoming = tmp_path / "raw_prompts"
+    incoming.mkdir()
+    write_jsonl(incoming / "records.jsonl", [{"meta.id": "q1", "prompt": "Q: w1"}])
+    outgoing = tmp_path / "candidates"
+    stage = SampleCandidates(
+        SampleCandidates.Config(
+            model=tiny_models["student"],
+            num_responses=3,
+            max_new_tokens=4,
+        )
+    )
+    ctx = StageContext(
+        rt=SimpleNamespace(),
+        inputs={"data": Artifact("raw", "k", incoming)},
+        output=Artifact("candidates", "k", outgoing),
+    )
+    res = stage.run(ctx)
+    assert res["computed"] == 1
+    sampled = read_jsonl(outgoing / "records.jsonl")
+    assert len(sampled) == 1
+    assert "responses" in sampled[0]
+    assert len(sampled[0]["responses"]) == 3
+    assert all(isinstance(r, str) for r in sampled[0]["responses"])
+
+
+def test_sppo_calibrate_stage(tmp_path):
+    from lmkd.pipeline.stages.preference import SPPOCalibrate
+
+    incoming = tmp_path / "in"
+    incoming.mkdir()
+    outgoing = tmp_path / "out"
+    outgoing.mkdir()
+    write_jsonl(
+        incoming / "records.jsonl",
+        [
+            {
+                "meta.id": "r1",
+                "prompt": "Capital of France?",
+                "responses": ["Paris", "Lyon", "Marseille"],
+                "rewards": [2.5, 0.5, -1.0],
+            }
+        ],
+    )
+    stage = SPPOCalibrate(SPPOCalibrate.Config(score_field="rewards"))
+    ctx = StageContext(
+        rt=SimpleNamespace(),
+        inputs={"data": Artifact("scores", "k", incoming)},
+        output=Artifact("calibrated", "k", outgoing),
+    )
+    res = stage.run(ctx)
+    assert res["computed"] == 1
+    calibrated = read_jsonl(outgoing / "records.jsonl")
+    assert len(calibrated) == 1
+    row = calibrated[0]
+    assert row["chosen"] == "Paris"
+    assert row["rejected"] == "Marseille"
+    assert row["chosen_probs_win"] > row["chosen_probs_lose"]
+    assert 0.0 < row["chosen_probs"] < 1.0
+

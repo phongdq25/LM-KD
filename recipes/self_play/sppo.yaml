@@ -13,8 +13,28 @@ data:
     limit: 200
 pipeline:
   - stage: prepare_dataset
-    name: prepare
+    name: raw
     source: {type: hf_dataset, path: UCLA-AGI/SPIN_iter0, split: train}
+  - stage: sample_candidates
+    name: candidates
+    inputs: {data: raw}
+    model: outputs/self_play/sft_warmup/checkpoint-final
+    num_responses: 4
+    temperature: 1.0
+    top_p: 0.95
+    max_new_tokens: 256
+  - stage: score
+    name: scores
+    inputs: {data: candidates}
+    mode: reward_model
+    model: sfairXC/FsfairX-LLaMA3-RM-v0.1
+    out_field: rewards
+  - stage: sppo_calibrate
+    name: calibrated
+    inputs: {data: scores}
+  - stage: prepare_dataset
+    name: prepare
+    source: {type: artifact_records, node: calibrated}
     transforms:
       - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
     dataset: true
@@ -23,8 +43,17 @@ teacher: {provider: hf_frozen, input: same}
 loss:
   terms:
     - {criterion: sppo, weight: 1.0, params: {beta: 0.001}}
-train: {output_dir: outputs/self_play/sppo, batch_size: 16, micro_batch_size: 2}
-optim: {lr: 5e-7}
+train: {output_dir: outputs/self_play/sppo, epochs: 2.0, batch_size: 16, micro_batch_size: 2}
+grad: {clip_norm: 10.0}
+optim:
+  lr: 5e-7
+  optimizers:
+    default:
+      type: rmsprop
+  schedulers:
+    - type: linear
+      warmup_ratio: 0.1
+      min_lr_ratio: 0.0
 callbacks:
   - type: evaluate
     every: epoch

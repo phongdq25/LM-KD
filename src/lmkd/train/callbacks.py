@@ -150,6 +150,7 @@ class EvaluateCallback(Callback):
         at_start: bool = False  # evaluate before training begins
         at_end: bool = True
         load_best_at_end: bool = True
+        offload_optimizer: bool = False
 
     def __init__(self, cfg: Any = None) -> None:
         super().__init__(cfg)
@@ -174,21 +175,26 @@ class EvaluateCallback(Callback):
         return False
 
     def _run_eval(self, rt: Any, phase: str = "always") -> None:
-        metrics = rt.evaluate(phase=phase)
+        if self.cfg.offload_optimizer and hasattr(rt, "offload_optimizer"):
+            with rt.offload_optimizer():
+                metrics = rt.evaluate(phase=phase)
+        else:
+            metrics = rt.evaluate(phase=phase)
         self._last_eval_step = getattr(rt.state, "step", 0)
         if rt.engine.is_main and metrics:
             out_dir = Path(getattr(rt.config.train, "output_dir", "."))
             out_file = out_dir / "eval.jsonl"
-            record = {"step": getattr(rt.state, "step", 0), "phase": phase, **metrics}
+            phase_label = "end" if phase == "end_only" else phase
+            record = {"step": getattr(rt.state, "step", 0), "phase": phase_label, **metrics}
             with open(out_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(record) + "\n")
 
-    def _load_best_student(self, rt: Any) -> None:
+    def _load_best_student(self, rt: Any) -> bool:
         from lmkd.train.checkpointing import find_best_checkpoint, load_student_checkpoint
 
         out_dir = getattr(rt.config.train, "output_dir", None)
         if not out_dir:
-            return
+            return False
         best = find_best_checkpoint(out_dir)
         if best is not None:
             if rt.engine.is_main:
@@ -196,6 +202,8 @@ class EvaluateCallback(Callback):
 
                 logging.getLogger(__name__).info("Loaded best checkpoint from %s for final evaluation", best)
             load_student_checkpoint(rt, best)
+            return True
+        return False
 
     def on_train_begin(self, rt: Any) -> None:
         if self.cfg.at_start:
@@ -207,9 +215,20 @@ class EvaluateCallback(Callback):
 
     def on_train_end(self, rt: Any) -> None:
         if self.cfg.at_end:
+            loaded_best = False
             if self.cfg.load_best_at_end:
-                self._load_best_student(rt)
-            self._run_eval(rt, phase="end")
+                loaded_best = self._load_best_student(rt)
+            current_step = getattr(rt.state, "step", 0)
+            phase = "end"
+            if self._last_eval_step == current_step and not loaded_best:
+                has_end_evals = any(
+                    getattr(getattr(ev, "cfg", None), "when", "always") == "end"
+                    for ev in getattr(rt, "evaluators", [])
+                )
+                if not has_end_evals:
+                    return
+                phase = "end_only"
+            self._run_eval(rt, phase=phase)
 
 
 @CALLBACKS.register("checkpoint")

@@ -267,10 +267,18 @@ class LocalEngine(Engine):
         super().__init__(cfg)
         d = cfg.device
         if d == "auto":
-            d = "cuda" if torch.cuda.is_available() else "cpu"
+            if torch.cuda.is_available():
+                import os
+
+                local_rank = os.environ.get("LOCAL_RANK")
+                d = f"cuda:{local_rank}" if local_rank is not None else "cuda"
+            else:
+                d = "cpu"
         self._device = torch.device(d)
         if self._device.type == "cuda":
             if torch.cuda.is_available():
+                if self._device.index is not None:
+                    torch.cuda.set_device(self._device)
                 torch.backends.cuda.matmul.allow_tf32 = True
                 torch.backends.cudnn.allow_tf32 = True
             if cfg.mixed_precision == "fp16":

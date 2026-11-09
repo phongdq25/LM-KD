@@ -39,6 +39,7 @@ def info_nce_loss(
     targets = torch.arange(B, device=scores.device, dtype=torch.long)
     loss = F.cross_entropy(scores, targets, reduction=reduction)
     if bidirectional:
-        loss_rev = F.cross_entropy(scores.t(), targets, reduction=reduction)
+        targets_rev = torch.arange(k.shape[0], device=scores.device, dtype=torch.long)
+        loss_rev = F.cross_entropy(scores.t(), targets_rev, reduction=reduction)
         loss = (loss + loss_rev) * 0.5
     return loss

@@ -44,18 +44,18 @@ teacher:
     type: self
     weight_policy:
       type: periodic_sync
-      every: 100
+      every: 20
   input:
     type: privileged_prompt
-    template: '{prompt_text}
+    template: 'Problem: {problem}
 
+      Here is a reference solution:
+      {solution}
 
-      Reference answer: {answer}
-
-
-      Solve the original question.'
+      After understanding the reference solution, please try to solve this problem using your own approach. Please reason step by step, and put your final answer within \boxed{{}}.'
     fields:
-    - answer
+    - problem
+    - solution
 algorithm:
   type: rl
   adv_transforms:

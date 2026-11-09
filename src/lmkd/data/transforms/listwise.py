@@ -28,6 +28,7 @@ for _key, _kind, _dtype, _pad, _side in (
     ("pref.win_prob", "scalar", torch.float32, 0.75, None),
     ("pref.lose_prob", "scalar", torch.float32, 0.25, None),
     ("pref.chosen_probs", "scalar", torch.float32, 0.75, None),
+    ("pref.sim_score", "scalar", torch.float32, 0.0, None),
     ("cache.topk_ids", "token_k", torch.long, 0, "student"),
     ("cache.topk_p", "token_k", torch.float32, 0, "student"),
     ("cache.tail_p", "token", torch.float32, 0, "student"),
@@ -140,6 +141,8 @@ def _score_values(row: dict, cfg: Any, n: int) -> list[float]:
         ]
     else:
         raw = row.get(cfg.score_field) if cfg.score_field else None
+        if raw is None and "scores_mcq" in row:
+            raw = row["scores_mcq"]
         scores = [float(x) for x in raw] if raw is not None else [nan] * n
     if len(scores) != n:
         raise ValueError("teacher scores must match response count")
@@ -175,7 +178,6 @@ def _tokenize_response(
 @TRANSFORMS.register("tokenize_listwise")
 class TokenizeListwise(Transform):
     """Create one group of target-aligned student rows per preference prompt.
-
     """
 
     provides = ("group.members",)
@@ -220,6 +222,13 @@ class TokenizeListwise(Transform):
             }
             if "rewards" in sample:
                 row["pref.reward"] = float(sample["rewards"][i])
+            for key in ("chosen_probs_win", "chosen_probs_lose", "chosen_probs", "sim_score", "win_prob", "lose_prob"):
+                src_key = key if key in sample else f"pref.{key}" if f"pref.{key}" in sample else None
+                if src_key is not None:
+                    val = sample[src_key]
+                    val_i = val[i] if isinstance(val, (list, tuple)) else val
+                    if val_i is not None:
+                        row[f"pref.{key}"] = float(val_i)
             for key in self.cfg.passthrough:
                 if key in sample:
                     row[key] = sample[key][i]

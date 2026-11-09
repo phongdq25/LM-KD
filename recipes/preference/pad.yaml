@@ -4,7 +4,7 @@ models:
     path: meta-llama/Llama-3.2-1B-Instruct
     dtype: bf16
 data:
-  max_length: 1024
+  max_length: 2048
   eval:
     type: hf_dataset
     path: HuggingFaceH4/ultrafeedback_binarized
@@ -14,7 +14,6 @@ pipeline:
 - stage: prepare_dataset
   name: raw
   source:
-    type: jsonl
     type: hf_dataset
     path: HuggingFaceH4/ultrafeedback_binarized
     split: train_prefs
@@ -32,11 +31,11 @@ pipeline:
     node: scores
   transforms:
   - type: tokenize_listwise
-    max_prompt_length: 512
-    max_length: 1024
+    max_prompt_length: 1800
+    max_length: 2048
     score_mix:
-      mcq: 0.5
-      avglogp: 0.5
+      mcq: 1.0
+      avglogp: 0.0
     mcq_confidence_filter: true
   dataset: true
 producer:
@@ -49,10 +48,14 @@ loss:
   terms:
   - criterion: vpd
     weight: 1.0
+    params:
+      beta: 10.0
 train:
   output_dir: outputs/preference/pad
-  batch_size: 8
+  batch_size: 64
   micro_batch_size: 4
+optim:
+  lr: 8.0e-7
 callbacks:
   - type: evaluate
     every: epoch

@@ -17,13 +17,22 @@ pipeline:
     transforms:
       - {type: tokenize_listwise, max_prompt_length: 512, max_length: 1024}
     dataset: true
-producer: {type: listwise, pad_groups_to: 3}
+producer: {type: listwise, pad_groups_to: 2}
 teacher: {provider: none, input: same}
 loss:
   terms:
-    - {criterion: tspin, weight: 1.0, params: {alpha: 1.0, beta: 0.1}}
-train: {output_dir: outputs/self_play/tspin, batch_size: 15, micro_batch_size: 3}
-optim: {lr: 5e-7}
+    - {criterion: tspin, weight: 1.0, params: {alpha: 1.0, beta: 0.0}}
+train: {output_dir: outputs/self_play/tspin, epochs: 2.0, batch_size: 16, micro_batch_size: 2}
+grad: {clip_norm: 10.0}
+optim:
+  lr: 5e-7
+  optimizers:
+    default:
+      type: rmsprop
+  schedulers:
+    - type: linear
+      warmup_ratio: 0.1
+      min_lr_ratio: 0.0
 callbacks:
   - type: evaluate
     every: epoch

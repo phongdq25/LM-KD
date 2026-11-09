@@ -196,13 +196,21 @@ def _load_student(rt: Any, d: Path) -> None:
             set_peft_model_state_dict(model, _read_student_state(d))
             return
     res = rt.engine.load_model_state_dict(model, _read_student_state(d))
-    if res.unexpected_keys:
-        raise RuntimeError(f"unexpected keys in {d}: {res.unexpected_keys[:5]}")
-    # tied weights (e.g. lm_head = wte) are not written by save_pretrained
-    tied = {n for n, _ in model.named_parameters(remove_duplicate=False)} - {n for n, _ in model.named_parameters()}
-    missing = [k for k in res.missing_keys if k not in tied]
-    if missing:
-        raise RuntimeError(f"missing keys in {d}: {missing[:5]}")
+    err: str | None = None
+    if getattr(rt.engine, "is_main", True):
+        if res.unexpected_keys:
+            err = f"unexpected keys in {d}: {res.unexpected_keys[:5]}"
+        # tied weights (e.g. lm_head = wte) are not written by save_pretrained
+        tied = {n for n, _ in model.named_parameters(remove_duplicate=False)} - {n for n, _ in model.named_parameters()}
+        missing = [k for k in res.missing_keys if k not in tied]
+        if missing and err is None:
+            err = f"missing keys in {d}: {missing[:5]}"
+
+    if getattr(rt.engine, "world_size", 1) > 1 and hasattr(rt.engine, "all_gather_object"):
+        errs = rt.engine.all_gather_object(err)
+        err = next((e for e in errs if e is not None), None)
+    if err:
+        raise RuntimeError(err)
 
 
 def load_checkpoint(rt: Any, path: str | Path) -> None:

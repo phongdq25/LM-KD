@@ -23,8 +23,17 @@ teacher: {provider: hf_frozen, input: same}
 loss:
   terms:
     - {criterion: spin, weight: 1.0, params: {beta: 0.1}}
-train: {output_dir: outputs/self_play/spin, batch_size: 16, micro_batch_size: 2}
-optim: {lr: 5e-7}
+train: {output_dir: outputs/self_play/spin, epochs: 2.0, batch_size: 16, micro_batch_size: 2}
+grad: {clip_norm: 10.0}
+optim:
+  lr: 5e-7
+  optimizers:
+    default:
+      type: rmsprop
+  schedulers:
+    - type: linear
+      warmup_ratio: 0.1
+      min_lr_ratio: 0.0
 callbacks:
   - type: evaluate
     every: epoch

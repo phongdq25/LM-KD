@@ -78,10 +78,59 @@ This ensures that gradient updates are **numerically identical** regardless of b
 
 ## 3. Decoupled Rollout with Ray & vLLM
 
-For on-policy algorithms (such as OPSD, GKD, and SPIN), generating autoregressive sequences on training GPUs causes severe pipeline bubbles.
-
-LM-KD supports a **decoupled rollout architecture**:
+For large multi-GPU clusters, on-policy algorithms (such as OPSD, GKD, and SPIN) can utilize a **decoupled rollout architecture**:
 1. **Training Cluster:** Runs DeepSpeed ZeRO-2 or FSDP across training GPUs, computing backward passes.
-2. **Rollout Cluster:** Runs high-throughput vLLM instances dedicated entirely to generation with optimized PagedAttention KV-caches.
-3. **Weight Sync:** After $K$ optimizer steps, student weights are broadcast asynchronously to the vLLM engine via NCCL or shared memory (`lmkd.rollout.weight_sync`).
+2. **Rollout Cluster:** Runs high-throughput vLLM instances dedicated entirely to generation with optimized PagedAttention KV-caches (`rollout: {type: vllm_server}`).
+3. **Weight Sync:** After $K$ optimizer steps, student weights are broadcast asynchronously to the vLLM engine via NCCL (`lmkd.rollout.vllm_server`).
+
+> [!NOTE]
+> While decoupled server architectures eliminate local memory contention, they introduce **GPU idle bubbles** if cluster scheduling is alternating (trainer sits idle while server generates, and vice-versa).
+
+---
+
+## 4. Single-GPU Colocate + Asynchronous Optimizer Offloading
+
+For single-node or budget-constrained setups (1–2 GPUs per node), dedicating an entire GPU strictly to a vLLM server is wasteful. LM-KD implements a **Single-GPU Colocate + Optimizer Offload architecture** ([`train/optimizer_offload.py`](../../src/lmkd/train/optimizer_offload.py)):
+
+```mermaid
+flowchart LR
+    subgraph SingleGPU["Single Physical GPU (100% Resource Utilization)"]
+        direction TB
+        subgraph TrainingStep["1. Training Step"]
+            T1["Forward & Backward Passes"]
+            T2["Optimizer Step (AdamW FP32)"]
+            T3["vLLM Sleep (KV-Cache Evicted)"]
+        end
+        subgraph OffloadPhase["2. Fast PCIe DMA Offload (~2.3s)"]
+            O1["AdamW m, v tensors copied to Pinned Host RAM"]
+            O2["torch.cuda.empty_cache() frees VRAM"]
+            O3["Student BF16 Model remains on GPU"]
+        end
+        subgraph RolloutEval["3. vLLM Rollout / Eval"]
+            V1["vLLM Wake Up (Allocates 75% VRAM for KV-Cache)"]
+            V2["Direct in-process weight sync (or LoRA hot-load)"]
+            V3["High-throughput PagedAttention Generation"]
+        end
+        subgraph ReloadPhase["4. Fast PCIe DMA Reload (~2.3s)"]
+            R1["vLLM Sleep (Evicts KV-Cache)"]
+            R2["AdamW tensors copied back to GPU"]
+        end
+    end
+    TrainingStep --> OffloadPhase --> RolloutEval --> ReloadPhase --> TrainingStep
+```
+
+### Key Technical Mechanisms
+1. **Persistent Pinned Buffers:** CPU host buffers are pre-allocated with `pin_memory=True` once and reused across all epochs/steps, completely eliminating memory allocation overhead.
+2. **Selective Offloading:** Only heavy FP32 optimizer states ($m, v$, taking ~75% of trainer VRAM) and master weights are offloaded. Low-precision model parameters (BF16) remain on the GPU, allowing vLLM to sync weights directly in-process via pointers without host roundtrips.
+3. **PCIe Bandwidth Efficiency:** Over PCIe 4.0 x16 (~24 GB/s), a 56 GB AdamW state (for a 7B model) transfers in **~2.33 seconds**, representing **$< 0.3\%$** overhead over a 30-minute training epoch while liberating 70–80% VRAM for vLLM generation.
+
+### Enabling in Recipes
+```yaml
+rollout:
+  type: vllm_colocate
+  gpu_memory_utilization: 0.75   # Up to 75% VRAM dedicated to vLLM
+  enable_sleep_mode: true
+  offload_optimizer: true        # Automatic DMA offload/reload
+```
+
 

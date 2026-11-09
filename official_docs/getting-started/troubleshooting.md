@@ -118,13 +118,39 @@ When running on-policy distillation (e.g., GKD, OPSD, SPIN), student rollouts ar
      type: vllm_colocate
      gpu_memory_utilization: 0.35  # Allocate 35% to vLLM KV-cache, 65% to PyTorch
    ```
-2. **Decoupled Architecture:**
-   For multi-GPU clusters, run vLLM on dedicated rollout GPUs and stream rollout sequences over IPC:
+2. **Asynchronous Optimizer State Offloading (Recommended for Full FT):**
+   When training full model parameters on a single GPU, offload the heavy AdamW FP32 states ($m, v$, ~75% of trainer VRAM) to persistent pinned host RAM during rollout/evaluation passes. This frees 70–80% VRAM for vLLM:
+   ```yaml
+   rollout:
+     type: vllm_colocate
+     gpu_memory_utilization: 0.75  # Dedicate up to 75% VRAM to vLLM KV-cache
+     enable_sleep_mode: true
+     offload_optimizer: true       # Asynchronous PCIe DMA offload (~2.3s per 56 GB)
+   ```
+   Or for periodic evaluation callbacks:
+   ```yaml
+   callbacks:
+     - type: evaluate
+       every: epoch
+       offload_optimizer: true
+   ```
+3. **LoRA Dynamic Hot-Loading (`lora_mode: hot_load`):**
+   For parameter-efficient distillation, base model weights remain frozen on the GPU and optimizer states are tiny (~200MB). Configure `hot_load` so vLLM syncs only the dynamic LoRA adapter without touching base weights:
+   ```yaml
+   rollout:
+     type: vllm_colocate
+     gpu_memory_utilization: 0.65
+     enable_sleep_mode: true
+     lora_mode: hot_load           # Dynamic multi-LoRA loading via LoRARequest (zero-latency sync)
+   ```
+4. **Decoupled Architecture (`vllm_server`):**
+   For multi-GPU clusters, run vLLM on dedicated rollout GPUs and stream rollout sequences over IPC/NCCL:
    ```yaml
    rollout:
      type: vllm_server
      host: "127.0.0.1"
      port: 8000
+     group_port: 51216
    ```
 
 ---

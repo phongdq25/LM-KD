@@ -70,8 +70,17 @@ def save_lora_adapter(rt, root: Path, step: int, keep: int = 2) -> Path:
     root = Path(root)
     path = root / f"lora_{step}"
     adapter_model: Any = unwrap(rt.student_model)
-    adapter_model.save_pretrained(str(path))
-    old = sorted((d for d in root.glob("lora_*") if d != path), key=lambda d: d.stat().st_mtime)
-    for d in old[: max(0, len(old) - (keep - 1))]:
-        shutil.rmtree(d, ignore_errors=True)
+    engine = getattr(rt, "engine", None)
+    if engine is not None and getattr(engine, "is_partitioned", False):
+        with engine.gathered(list(adapter_model.parameters()), modifier_rank=0):
+            if engine.is_main:
+                adapter_model.save_pretrained(str(path))
+        if getattr(engine, "world_size", 1) > 1:
+            engine.barrier()
+    else:
+        adapter_model.save_pretrained(str(path))
+    if engine is None or getattr(engine, "is_main", True):
+        old = sorted((d for d in root.glob("lora_*") if d != path), key=lambda d: d.stat().st_mtime)
+        for d in old[: max(0, len(old) - (keep - 1))]:
+            shutil.rmtree(d, ignore_errors=True)
     return path

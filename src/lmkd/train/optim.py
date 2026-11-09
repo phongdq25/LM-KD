@@ -185,6 +185,28 @@ class SGDBuilder(OptimizerBuilder):
         return torch.optim.SGD(_strip(groups), momentum=self.cfg.momentum)
 
 
+@OPTIMIZERS.register("rmsprop")
+class RMSpropBuilder(OptimizerBuilder):
+    """torch RMSprop optimizer (APSP/SPIN/SPPO alignment)."""
+
+    class Config(BaseConfig):
+        alpha: float = 0.99
+        eps: float = 1e-8
+        weight_decay: float = 0.0
+        momentum: float = 0.0
+        centered: bool = False
+
+    def build(self, groups):
+        kw: dict[str, Any] = {
+            "alpha": self.cfg.alpha,
+            "eps": self.cfg.eps,
+            "weight_decay": self.cfg.weight_decay,
+            "momentum": self.cfg.momentum,
+            "centered": self.cfg.centered,
+        }
+        return torch.optim.RMSprop(_strip(groups), **kw)
+
+
 @OPTIMIZERS.register(
     "muon",
     paper="Muon (Jordan et al. 2024)",

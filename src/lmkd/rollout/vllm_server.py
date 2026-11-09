@@ -82,7 +82,8 @@ class VLLMServer(RolloutEngine):
             for name, tensor in engine.iter_full_state_dict(model):
                 if engine.is_main and self.client is not None and error is None:
                     try:
-                        self.client.update_named_param(name, tensor)
+                        param = tensor.to(device=engine.device, non_blocking=True) if hasattr(engine, "device") else tensor
+                        self.client.update_named_param(name, param)
                     except Exception as exc:
                         # Drain the collective weight iterator even after a failed network transfer.
                         error = f"{type(exc).__name__}: {exc}"

@@ -243,14 +243,42 @@ producer:
   group_by_length: false
   length_bucket_mult: 50
 
-# Rollout Engine configuration when using on-policy producers (mixed / rollout_group / adaptive_sgo)
-# For standard off-policy distillation, set `rollout: null`.
+# ===================================================================================================
+# 5. ROLLOUT (Inference & Generation Engine for On-Policy Distillation and Evaluation)
+# ===================================================================================================
+# Configures the generation backend used by on-policy producers (mixed, rollout_group, adaptive_sgo)
+# and downstream evaluation tasks (math_passk, generation_rouge).
+# For pure offline / off-policy distillation without rollout, set `rollout: null`.
 rollout: null
-# Example vLLM Colocate configuration on shared GPU:
+
+# ---------------------------------------------------------------------------------------------------
+# Option A: vLLM Colocate on Shared GPU (Recommended for 1-GPU / colocation with sleep/wake)
+# ---------------------------------------------------------------------------------------------------
 # rollout:
-#   type: vllm_colocate                 # vllm_colocate (shared GPU) | vllm_server (separate server) | hf (native HF)
-#   gpu_memory_utilization: 0.3         # VRAM fraction allocated for vLLM KV cache (e.g. 0.3 = 30%)
-#   lora_mode: hot_load                 # hot_load = dynamically sync newest LoRA weights into vLLM engine
+#   type: vllm_colocate                 # Rollout engine implementation:
+#                                       #   - vllm_colocate: vLLM shares training GPU via sleep/wake mode
+#                                       #   - vllm_server: vLLM runs on dedicated GPU server via NCCL (TRL VLLMClient)
+#                                       #   - hf: Native HuggingFace generate() (CPU/debugging, slow for production)
+#   gpu_memory_utilization: 0.70        # VRAM fraction allocated for vLLM KV-Cache & continuous batching (0.3 - 0.75)
+#   enable_sleep_mode: true             # true = evicts KV-Cache and sleeps during training forward/backward steps
+#   sleep_level: 1                      # 1 = evicts KV-Cache, offloads weights to CPU | 2 = discards weights entirely
+#   offload_optimizer: true             # true = automatically offloads AdamW FP32 states to pinned host RAM during
+#                                       #        rollout/eval, freeing 70-80% VRAM for vLLM without OOM
+#   lora_mode: hot_load                 # LoRA weight synchronization mode:
+#                                       #   - hot_load: dynamic multi-LoRA loading via LoRARequest (zero-latency sync)
+#                                       #   - merge: in-process direct pointer transfer of merged weights
+#   sync_every: 1                       # Optimizer steps cadence between student -> vLLM weight pushes
+#   enforce_eager: false                # true = disables CUDA graphs in vLLM (saves memory, slight latency tradeoff)
+#
+# ---------------------------------------------------------------------------------------------------
+# Option B: Dedicated vLLM Server on Separate GPU (Multi-GPU setup)
+# ---------------------------------------------------------------------------------------------------
+# rollout:
+#   type: vllm_server
+#   host: "127.0.0.1"
+#   port: 8000                          # HTTP port of external `trl vllm-serve`
+#   group_port: 51216                   # NCCL weight synchronization port
+#   sync_every: 1                       # Sync cadence over NCCL communicator
 
 
 # ===================================================================================================
@@ -344,8 +372,8 @@ loss:
       weight: 1.0                       # Term weight multiplier
       alias: nll                        # Term alias identifier
       params:
-        temperature: 2.0
         chunk_size: 1024                # Token chunk size for chunked cross-entropy (prevents VRAM OOM)
+        fused: "off"                    # Kernel fusion: "off" | "auto" | "on" (Liger fused cross-entropy)
 
     # 2. Token-level Distillation Loss
     - criterion: token_kd
@@ -499,47 +527,65 @@ callbacks:
   - type: nan_guard
     patience: 5                         # Terminates run if 5 consecutive steps produce NaN or Inf loss
 
-  # Checkpoints model and optimizer states
+  # Checkpoints model and optimizer states with automated retention rotation
   - type: checkpoint
-    every: 500                          # Checkpoint frequency (every 500 optimizer steps, or "epoch")
+    every: 500                          # Checkpoint frequency: integer steps (e.g. 500) or "epoch"
     at_end: true                        # Always save a complete checkpoint upon training completion
-    keep_last: 3                        # Maximum number of recent checkpoints retained (deletes older ones)
-    keep_best: 1                        # Number of top-performing checkpoints retained indefinitely
-    metric: eval/loss                   # Metric used to rank best checkpoints
+    keep_last: 3                        # Maximum number of recent checkpoints retained for resuming.
+                                        # Set to 0 to keep only best checkpoints; set to null to keep ALL checkpoints.
+    keep_best: 1                        # Number of top-performing checkpoints retained indefinitely.
+                                        # Creates `best_checkpoint` symlink and `best_checkpoint.txt` in output_dir.
+    metric: eval/loss                   # Metric used to rank checkpoints (e.g. eval/loss, math_passk/math500/pass@1)
     mode: min                           # min = lower metric value is better | max = higher value is better
 
   # Periodic evaluation on evaluation data source
   - type: evaluate
     every: epoch                        # "epoch" = evaluate at each epoch boundary | integer = every N steps
     at_start: true                      # true = run initial evaluation before epoch 1 to establish baseline
+    at_end: true                        # true = run final evaluation at the end of training
+    load_best_at_end: true              # true = automatically loads the best checkpoint before running end evaluation
+    offload_optimizer: true             # true = automatically offloads AdamW FP32 states to pinned host RAM during
+                                        #        evaluation, freeing 70-80% VRAM for vLLM without OOM
 
 
 # ===================================================================================================
 # 12. EVAL (Model Capability Evaluators)
 # ===================================================================================================
 eval:
-  # Evaluates validation loss on the development dataset
+  # 1. Dev Loss: Fast teacher-forced loss on validation dataset (runs every epoch)
   - type: dev_loss
+    when: epoch                         # Evaluation phase: "epoch" (periodic) | "end" (final only) | "always"
     data:
       type: jsonl
       path: data/dev.jsonl
 
-  # Evaluates text generation quality using ROUGE and Exact Match metrics
+  # 2. Text Generation: ROUGE and Exact Match evaluation (runs at end of training)
   - type: generation_rouge
+    when: end                           # Run at the end of training on the best checkpoint
     data:
       type: jsonl
       path: data/dev.jsonl
     sampling:
       max_new_tokens: 128               # Maximum generated tokens during autoregressive decoding
       temperature: 0.0                  # Greedy decoding (0.0) for deterministic evaluation
+    # engine: null                      # null = automatically reuses `rollout` engine if configured; falls back to "hf"
+    # engine:                           # Or explicitly configure vLLM for evaluation when rollout is not defined:
+    #   type: vllm_colocate
+    #   gpu_memory_utilization: 0.75
+    #   enable_sleep_mode: true
 
-  # Additional specialized evaluators:
-  #   - type: math_passk                # Evaluates mathematical reasoning (Pass@k on AIME24 or MATH500)
-  #     dataset: math500
-  #     n: 8
-  #     temperature: 0.7
-  #   - type: embedding_sts             # Evaluates Semantic Textual Similarity correlation
-  #     data: {type: csv, path: data/eval_sts.csv}
+  # 3. Multi-sample Mathematical Reasoning with Pass@k (MATH500 / AIME24 / AIME25)
+  # - type: math_passk
+  #   when: epoch                       # "epoch" = evaluate math capability at every epoch boundary
+  #   name: math                        # Metric prefix: math_passk/math/...
+  #   benchmarks: ["math500"]           # Benchmark dataset name(s): math500, aime24, aime25, amc12
+  #   n: 4                              # Number of completions generated per problem (e.g. 4 or 8)
+  #   ks: [1]                           # Unbiased Pass@k evaluation metrics (e.g. pass@1)
+  #   grader: boxed_builtin             # Answer extraction & grading: boxed_builtin (no extra deps) | math_verify
+  #   engine:                           # vLLM engine specification (reuses rollout if not specified):
+  #     type: vllm_colocate
+  #     gpu_memory_utilization: 0.75   # Allocates 75% VRAM to vLLM KV-Cache (combined with offload_optimizer)
+  #     enable_sleep_mode: true         # Returns memory to trainer when evaluation completes
 
 
 # ===================================================================================================

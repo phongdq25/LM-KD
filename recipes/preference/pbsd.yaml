@@ -4,13 +4,13 @@ models:
   student:
     path: Qwen/Qwen3-0.6B
     dtype: bf16
-    lora: {r: 16, lora_alpha: 32, target_modules: [q_proj, k_proj, v_proj, o_proj]}
+    lora: {r: 64, lora_alpha: 128, target_modules: [q_proj, k_proj, v_proj, o_proj]}
 data:
   train: {type: hf_dataset, path: HuggingFaceH4/ultrafeedback_binarized, split: train_prefs}
   eval: {type: hf_dataset, path: HuggingFaceH4/ultrafeedback_binarized, split: test_prefs, limit: 200}
   max_length: 4096
   transforms: [{type: tokenize_prompt, template: "{prompt}", keep_fields: [prompt, solution, answer]}]
-producer: {type: pbsd_online, sampling: {temperature: 0.7, max_new_tokens: 1024}, verifier: math_verify}
+producer: {type: pbsd_online, sampling: {temperature: 1.1, top_p: 0.95, top_k: 20, max_new_tokens: 1024}, verifier: math_verify}
 rollout: {type: hf}
 teacher:
   provider: {type: self, weight_policy: lora_disabled, position_map: response_shift}
@@ -18,8 +18,8 @@ teacher:
     type: privileged_prompt
     template: "{prompt}\nReference solution: {solution}\nSolve independently and put the answer in \\boxed{{}}."
     fields: [prompt, solution]
-loss: {terms: [{criterion: pbsd, params: {beta: 0.1}}]}
-train: {output_dir: outputs/preference/pbsd, batch_size: 8, micro_batch_size: 2}
+loss: {terms: [{criterion: pbsd, params: {beta: 0.1, loss_type: logistic_gap}}]}
+train: {output_dir: outputs/preference/pbsd, batch_size: 16, micro_batch_size: 2}
 optim: {lr: 1.0e-5}
 callbacks:
   - type: evaluate

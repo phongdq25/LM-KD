@@ -96,6 +96,7 @@ class VLLMColocate(RolloutEngine):
         enforce_eager: bool = False
         extra_eos_ids: list[int] = []
         max_logprobs: int = 20
+        offload_optimizer: bool = False
 
     auto_stale = True  # RolloutWeightSync.setup switches this off
 
@@ -105,6 +106,11 @@ class VLLMColocate(RolloutEngine):
         spec = getattr(rt.config.models, cfg.model)
         tok = getattr(rt, f"{cfg.model}_tokenizer")
         self._tok = tok
+        self._offloader = None
+        if cfg.offload_optimizer:
+            from lmkd.train.optimizer_offload import get_or_create_offloader
+
+            self._offloader = get_or_create_offloader(rt)
         self._lora = spec.lora is not None and cfg.lora_mode == "hot_load"
         self._merge = spec.lora is not None and cfg.lora_mode == "merge"
         if self._lora and cfg.enable_sleep_mode and cfg.sleep_level >= 2:
@@ -145,8 +151,14 @@ class VLLMColocate(RolloutEngine):
         self.llm.sleep(level=self.cfg.sleep_level)
         if self.cfg.sleep_level >= 2:
             self._resync = True  # level 2 dropped the weights themselves
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        if self._offloader is not None:
+            self._offloader.reload()
 
     def _wake(self, tags: list[str]) -> None:
+        if self._offloader is not None:
+            self._offloader.offload()
         torch.cuda.empty_cache()
         self.llm.wake_up(tags=tags)
 

@@ -27,7 +27,7 @@ Evaluated across 3 distinct Teacher $\rightarrow$ Student pairs representing dif
 ## 2. Datasets & Resources
 
 ### Training Corpus (Unlabeled)
-- Unlabeled corpus `train_full.csv` (100,000 sentences extracted from AllNLI and Wikipedia).
+- Unlabeled corpus `train_full.csv`.
 - *Local Workspace Path:* [`datasets/embedding_data/train_full.csv`](../../datasets/embedding_data/train_full.csv)
 - *Hugging Face Hub:* [sentence-transformers/all-nli](https://huggingface.co/datasets/sentence-transformers/all-nli) & [wikimedia/wikipedia](https://huggingface.co/datasets/wikimedia/wikipedia)
 

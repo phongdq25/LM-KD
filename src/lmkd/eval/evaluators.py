@@ -467,9 +467,11 @@ class LMEval(Evaluator):
             # auto uses vllm if checkpoint is available on disk and cuda is active
             if ckpt_path and torch.cuda.is_available() and device.startswith("cuda"):
                 try:
-                    import vllm  # noqa: F401
+                    from lmkd.compat import vllm_api
+
+                    vllm_api.import_vllm()
                     use_vllm = True
-                except ImportError:
+                except (ImportError, RuntimeError):
                     use_vllm = False
 
         if use_vllm and ckpt_path:

@@ -137,7 +137,7 @@ def tv_distance(
 def skewed_forward_kl(
     s_logits: torch.Tensor,
     t_logits: torch.Tensor,
-    alpha: float = 0.1,
+    alpha: float | torch.Tensor = 0.1,
     temperature: float = 1.0,
 ) -> torch.Tensor:
     """Skewed forward KL divergence.
@@ -160,7 +160,7 @@ def skewed_forward_kl(
 def skewed_reverse_kl(
     s_logits: torch.Tensor,
     t_logits: torch.Tensor,
-    alpha: float = 0.1,
+    alpha: float | torch.Tensor = 0.1,
     temperature: float = 1.0,
 ) -> torch.Tensor:
     """Skewed reverse KL divergence.

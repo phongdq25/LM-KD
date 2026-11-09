@@ -134,7 +134,7 @@ class DistiLLM2Producer(BatchProducer):
         self._sampler = sampler
 
         def _collate_pairs(batch_pairs: list[tuple[dict[str, Any], dict[str, Any]]]) -> Batch:
-            flattened = []
+            flattened: list[dict[str, Any]] = []
             for c, r in batch_pairs:
                 flattened.extend((c, r))
             return self.rt.collator(flattened)
