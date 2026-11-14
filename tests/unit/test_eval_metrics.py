@@ -313,4 +313,40 @@ def test_lm_eval_evaluator_vllm_backend(tmp_path):
     assert mock_vllm.called
 
 
+def test_sync_engine_weights_skips_self_syncing_colocate_engine():
+    from lmkd.eval.generation import _sync_engine_weights
+
+    rt = MagicMock()
+    rt.student_model = MagicMock()
+    rt.engine.iter_full_state_dict.return_value = iter([("w", 1)])
+
+    colocate_engine = MagicMock()
+    colocate_engine._maybe_sync = MagicMock()
+    _sync_engine_weights(rt, colocate_engine)
+    assert not colocate_engine.update_weights.called
+
+    plain_engine = MagicMock(spec=["update_weights"])
+    _sync_engine_weights(rt, plain_engine)
+    assert plain_engine.update_weights.called
+
+
+def test_load_student_checkpoint_marks_rollout_resync(tmp_path):
+    from lmkd.train.checkpointing import COMPLETE, load_student_checkpoint
+
+    ckpt = tmp_path / "checkpoint-10"
+    (ckpt / "student").mkdir(parents=True)
+    (ckpt / COMPLETE).touch()
+
+    rt = MagicMock()
+    rt.rollout = MagicMock()
+    rt.rollout._resync = False
+
+    with patch("lmkd.train.checkpointing._load_student"):
+        load_student_checkpoint(rt, ckpt)
+
+    assert rt.rollout._resync is True
+    assert rt.rollout.mark_stale.called
+
+
+
 

@@ -33,7 +33,7 @@ data:
     use_chat_template: true
     chat_template_kwargs:
       enable_thinking: false
-  max_length: 1024
+  max_length: 256
   padding: dynamic
   pad_to_multiple_of: 8
 teacher:
@@ -132,7 +132,7 @@ eval:
   when: end
 train:
   output_dir: outputs/csd_on_policy
-  epochs: 3
+  epochs: 5
   batch_size: 32
   micro_batch_size: 4
   seed: 42

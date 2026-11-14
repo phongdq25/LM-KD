@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 def _sync_engine_weights(rt: Any, engine: Any) -> None:
+    if hasattr(engine, "_maybe_sync"):
+        # VLLMColocate wakes weights, syncs full/LoRA/ZeRO-3 params, and resets prefix cache inside generate().
+        return
     if not hasattr(engine, "update_weights"):
         return
     engine_inst = getattr(rt, "engine", None)

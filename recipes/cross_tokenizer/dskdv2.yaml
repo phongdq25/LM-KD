@@ -26,7 +26,7 @@ data:
   transforms:
   - type: tokenize_sft
     use_chat_template: false
-  max_length: 1024
+  max_length: 256
   padding: dynamic
   pad_to_multiple_of: 8
   packing: false
@@ -54,6 +54,9 @@ loss:
       analytic_s2t: true
   schedules: {}
 producer: dataset
+rollout:
+  type: vllm_colocate
+  gpu_memory_utilization: 0.3
 algorithm: standard
 step: standard
 optim:
@@ -83,7 +86,7 @@ engine:
   mixed_precision: bf16
 train:
   output_dir: outputs/dskdv2
-  epochs: 1.0
+  epochs: 20.0
   batch_size: 32
   micro_batch_size: 4
   seed: 42

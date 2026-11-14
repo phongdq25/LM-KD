@@ -261,4 +261,11 @@ def load_student_checkpoint(rt: Any, path: str | Path) -> Path:
     if (p / "modules.pt").exists():
         sd = torch.load(p / "modules.pt", map_location="cpu", weights_only=True)
         eng.load_model_state_dict(rt.modules, sd)
+    rollout = getattr(rt, "rollout", None)
+    if rollout is not None:
+        if hasattr(rollout, "_resync"):
+            rollout._resync = True
+        mark = getattr(rollout, "mark_stale", None)
+        if callable(mark):
+            mark()
     return p

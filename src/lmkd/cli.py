@@ -128,13 +128,15 @@ def _cmd_pipeline(args) -> int:
 
 
 def _cmd_eval(args) -> int:
+    import torch
+
     from lmkd.train.builder import build_runtime
     from lmkd.train.checkpointing import resolve_checkpoint
 
     cfg = _load(args)
     ckpt = getattr(args, "ckpt", None)
-    if ckpt:
-        ckpt_p = resolve_checkpoint(ckpt)
+    ckpt_p = resolve_checkpoint(ckpt) if ckpt else None
+    if ckpt_p is not None:
         student_p = ckpt_p / "student" if (ckpt_p / "student").exists() else ckpt_p
         cfg.models.student.path = str(student_p)
         if (student_p / "adapter_config.json").exists():
@@ -143,8 +145,8 @@ def _cmd_eval(args) -> int:
     cfg.train.max_steps = 1
     rt = build_runtime(cfg)
 
-    if ckpt:
-        student_p = (resolve_checkpoint(ckpt) / "student") if (resolve_checkpoint(ckpt) / "student").exists() else resolve_checkpoint(ckpt)
+    if ckpt_p is not None:
+        student_p = ckpt_p / "student" if (ckpt_p / "student").exists() else ckpt_p
         if (student_p / "adapter_config.json").exists() and not getattr(rt.rollout, "use_lora_request", False):
             from peft import PeftModel
 
@@ -153,6 +155,14 @@ def _cmd_eval(args) -> int:
             rt.student_model = PeftModel.from_pretrained(rt.student_model, str(student_p))
             wrapped = HiddenForward(rt.student_model, rt.student_adapter)
             rt.student_module = rt.engine.wrap_trainable(wrapped) if hasattr(rt.engine, "wrap_trainable") else wrapped
+        if (ckpt_p / "modules.pt").exists() and len(rt.modules.mods):
+            sd = torch.load(ckpt_p / "modules.pt", map_location="cpu", weights_only=True)
+            rt.engine.load_model_state_dict(rt.modules, sd)
+        if (ckpt_p / "criterion_state.pt").exists():
+            crit = torch.load(ckpt_p / "criterion_state.pt", map_location="cpu", weights_only=False)
+            for t in rt.criteria:
+                if t.alias in crit:
+                    t.criterion.load_extra_state(crit[t.alias])
 
     metrics = rt.evaluate()
     print(json.dumps(metrics, indent=2))

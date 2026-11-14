@@ -16,11 +16,14 @@ data:
     use_chat_template: true
     chat_template_kwargs:
       enable_thinking: false
-  max_length: 1024
+  max_length: 256
   padding: dynamic
   pad_to_multiple_of: 8
 producer:
   type: dataset
+rollout:
+  type: vllm_colocate
+  gpu_memory_utilization: 0.3
 algorithm: standard
 step:
   type: standard
@@ -52,7 +55,7 @@ engine:
   mixed_precision: bf16
 train:
   output_dir: outputs/sft
-  epochs: 3
+  epochs: 5
   batch_size: 32
   micro_batch_size: 4
   seed: 42
