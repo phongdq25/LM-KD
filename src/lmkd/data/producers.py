@@ -421,8 +421,8 @@ class AdaptiveSGOProducer(DatasetProducer):
                     try:
                         metrics = ev.evaluate(rt)
                         self.on_eval(metrics)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        warnings.warn(f"AdaptiveSGOProducer eval_step_zero failed: {exc}", RuntimeWarning, stacklevel=2)
                     break
 
     def on_eval(self, metrics: dict) -> None:

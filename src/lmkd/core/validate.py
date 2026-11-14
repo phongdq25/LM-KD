@@ -11,11 +11,16 @@ Teacher signal capability is checked at build time (Algorithm.setup) because it 
 
 from __future__ import annotations
 
+import math
+import os
+import tempfile
+import traceback
 from dataclasses import dataclass, field
 from typing import Any
 
 from lmkd.core import registry as R
 from lmkd.core.config import RecipeConfig
+from lmkd.plugins import load_plugins
 
 
 @dataclass
@@ -74,8 +79,6 @@ def check_recipe(cfg: RecipeConfig, *, injected: frozenset[str] = frozenset()) -
 
     Order matters: ``_Graph`` accumulates the batch keys provided so far, so plugins are visited in
     data-flow order (sources -> pipeline -> transforms -> producer -> teacher -> losses -> the rest)."""
-    from lmkd.plugins import load_plugins
-
     rep = CheckReport()
     try:
         load_plugins(cfg.imports)
@@ -258,6 +261,14 @@ def _check_optimization_and_extras(cfg: RecipeConfig, g: _Graph) -> None:
         g.visit(R.SCHEDULERS, sched, f"optim.schedulers[{i}]")
     for name, opt in cfg.optim.optimizers.items():
         g.visit(R.OPTIMIZERS, opt, f"optim.optimizers.{name}")
+    defined_opts = set(cfg.optim.optimizers)
+    for i, grp in enumerate(cfg.optim.groups):
+        opt_name = grp.get("optimizer", "default")
+        if opt_name not in defined_opts:
+            g.rep.errors.append(
+                f"optim.groups[{i}] ({grp.get('name', i)}): references undefined optimizer "
+                f"{opt_name!r} (defined: {sorted(defined_opts)})"
+            )
     for i, hook in enumerate(cfg.grad.hooks):
         g.visit(R.GRAD_HOOKS, hook, f"grad.hooks[{i}]")
     for i, transform in enumerate(cfg.grad.transforms):
@@ -340,9 +351,6 @@ def _teacher_signal_check(cfg: RecipeConfig, rep: CheckReport) -> None:
 def preflight(cfg: RecipeConfig, n_samples: int = 2) -> CheckReport:
     """Build the full runtime on a TINY data subset and run ONE forward+loss (no backward,
     no optimizer step). Reports the batch keys/shapes, feature request and loss terms."""
-    import tempfile
-    import traceback
-
     import torch
 
     from lmkd.train.builder import build_runtime
@@ -373,7 +381,7 @@ def preflight(cfg: RecipeConfig, n_samples: int = 2) -> CheckReport:
             with torch.no_grad():
                 outs = rt.algorithm.loss(micro, rt)
                 norms = rt.step_strategy.global_norms([micro])
-                loss, mets = rt.aggregator.combine(outs, norms)
+                _, mets = rt.aggregator.combine(outs, norms)
 
             rep.info.append("micro-batch:")
             for k in sorted(micro):
@@ -403,9 +411,6 @@ def preflight(cfg: RecipeConfig, n_samples: int = 2) -> CheckReport:
 
 def _preflight_sizes(cfg: RecipeConfig) -> tuple[int, int, int]:
     """Preserve groups/minibatches when shrinking a rollout or listwise preflight."""
-    import math
-    import os
-
     producer, params = R.PRODUCERS.validate(cfg.producer)
     _, step = R.STEP_STRATEGIES.validate(cfg.step)
     world = max(1, int(os.environ.get("WORLD_SIZE", "1")))

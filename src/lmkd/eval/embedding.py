@@ -13,11 +13,13 @@ import csv
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 
-from lmkd.core.registry import EVALUATORS
+from lmkd.core.registry import EVALUATORS, POOLERS, SOURCES
 from lmkd.eval.base import Evaluator
+from lmkd.pipeline.io import read_jsonl
 
 
 def _load_records(data_spec: Any) -> list[dict]:
@@ -27,8 +29,6 @@ def _load_records(data_spec: Any) -> list[dict]:
         if "records" in data_spec:
             return data_spec["records"]
         if "type" in data_spec:
-            from lmkd.core.registry import SOURCES
-
             source = SOURCES.build(data_spec)
             return list(source.records())
         if "path" in data_spec:
@@ -36,8 +36,6 @@ def _load_records(data_spec: Any) -> list[dict]:
             if not p.exists():
                 return []
             if p.suffix == ".jsonl":
-                from lmkd.pipeline.io import read_jsonl
-
                 return read_jsonl(p)
             elif p.suffix == ".csv":
                 with open(p, encoding="utf-8") as f:
@@ -59,8 +57,6 @@ def encode_texts(
 ) -> torch.Tensor:
     """[N, D] fp32 sentence embeddings on CPU (no grad). ``adapter`` = ModelAdapter used to run the
     backbone (``None`` = ``model(...)`` must return ``last_hidden_state``)."""
-    from lmkd.core.registry import POOLERS
-
     device = device or next(model.parameters()).device
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -128,7 +124,6 @@ def linear_probe(
     **encode_kw: Any,
 ) -> dict[str, float]:
     """Logistic regression on frozen embeddings -> macro-F1 / accuracy."""
-    import numpy as np
     from sklearn.linear_model import LogisticRegression
     from sklearn.metrics import accuracy_score, f1_score
 
@@ -165,7 +160,6 @@ def pair_classification(
 ) -> dict[str, float]:
     """Pair classification: AP of ``(cos + 1) / 2`` + best-threshold accuracy / macro-F1.
     """
-    import numpy as np
     from sklearn.metrics import accuracy_score, average_precision_score, f1_score
 
     if not records:

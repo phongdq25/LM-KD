@@ -18,7 +18,10 @@ from lmkd.losses.base import ModelPairInfo, PrepareContext
 from lmkd.models.adapters import HiddenForward, resolve_adapter
 from lmkd.models.loading import load_model, load_tokenizer
 from lmkd.models.modules import ModuleRegistry
+from lmkd.pipeline.runner import run_pipeline
+from lmkd.plugins import load_plugins
 from lmkd.train.callbacks import CallbackList
+from lmkd.train.checkpointing import load_checkpoint
 from lmkd.train.grad import ClipNorm, ParamWithGroup
 from lmkd.train.optim import NamedParam, build_param_groups
 from lmkd.train.runtime import CriterionEntry, Runtime
@@ -47,8 +50,6 @@ def build_data(rt: Runtime, train_records: list[dict] | None = None) -> None:
     if train_records is not None:
         samples = run_transforms(train_records, transforms, rt.data_ctx)
     elif cfg.pipeline:
-        from lmkd.pipeline.runner import run_pipeline
-
         samples = run_pipeline(rt)  # None if no stage produces the training samples (K10)
     if samples is None:
         if cfg.data.train is None:
@@ -206,10 +207,10 @@ def setup_components(rt: Runtime) -> None:
     for comp in [
         rt.teacher,
         rt.teacher_input,
-        rt.rollout,
-        rt.producer,
         rt.algorithm,
         rt.step_strategy,
+        rt.rollout,
+        rt.producer,
         *rt.grad_hooks,
         *rt.grad_transforms,
         *rt.callbacks.cbs,
@@ -240,8 +241,6 @@ def build_runtime(
 
     Keyword arguments inject Python objects instead of building them from the recipe (library mode,
     ``lmkd.build``). ``loss_fn(batch, rt)`` adds a tier-0 loss (see ``rt.loss_fn``)."""
-    from lmkd.plugins import load_plugins
-
     load_plugins(cfg.imports)
     seed_everything(cfg.train.seed)
     engine = R.ENGINES.build(cfg.engine)
@@ -281,7 +280,5 @@ def build_runtime(
         if hasattr(opt, "sync_master_from_model"):
             opt.sync_master_from_model()
     if cfg.train.resume_from:  # after schedulers exist (LambdaLR lambdas are not saved)
-        from lmkd.train.checkpointing import load_checkpoint
-
         load_checkpoint(rt, cfg.train.resume_from)
     return rt

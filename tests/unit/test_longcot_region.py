@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from types import SimpleNamespace
+
 import pytest
 
 from baselines.longCoT.sgl_spectral.transforms import (
@@ -15,6 +18,9 @@ from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import TRANSFORMS
 from lmkd.data.context import DataContext
 from lmkd.data.transforms.base import CorpusTransform
+from lmkd.pipeline.io import load_samples_dir
+from lmkd.pipeline.stage import StageContext
+from lmkd.pipeline.stages.prepare import PrepareDataset
 from lmkd.plugins import load_builtin_plugins  # noqa: E402
 
 load_builtin_plugins()
@@ -93,11 +99,6 @@ def test_ssft_select_checks_signal_length():
 
 def test_prepare_dataset_fits_corpus_transform_on_whole_corpus(tmp_path):
     """num_proc>1 must not fit a CorpusTransform per chunk."""
-    import json
-    from types import SimpleNamespace
-
-    from lmkd.pipeline.stage import StageContext
-    from lmkd.pipeline.stages.prepare import PrepareDataset
 
     @TRANSFORMS.register("_t18_count_corpus", force=True)
     class _Count(CorpusTransform):
@@ -122,6 +123,5 @@ def test_prepare_dataset_fits_corpus_transform_on_whole_corpus(tmp_path):
     out.mkdir()
     stage.setup(SimpleNamespace())
     stage.run(StageContext(rt=SimpleNamespace(), output=SimpleNamespace(path=out), inputs={}))
-    from lmkd.pipeline.io import load_samples_dir
 
     assert {s["meta.n_fit"] for s in load_samples_dir(out)} == {8}

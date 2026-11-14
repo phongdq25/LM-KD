@@ -1,4 +1,5 @@
 import torch
+from tests.conftest import _make_tokenizer
 from transformers import BertConfig, BertModel
 
 from lmkd.core.batch import Batch
@@ -57,8 +58,6 @@ def test_bert_adapter_backbone():
 
 
 def test_tokenize_text_keep_text_truncation(tmp_path):
-    from tests.conftest import _make_tokenizer
-
     tok = _make_tokenizer(tmp_path / "tok")
     ctx = DataContext(student_tokenizer=tok, max_length=4)
 

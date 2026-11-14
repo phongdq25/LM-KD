@@ -7,6 +7,7 @@ Layer index convention (same as HF ``output_hidden_states``):
 from __future__ import annotations
 
 import contextlib
+import math
 from collections.abc import Iterator
 from typing import Any
 
@@ -141,8 +142,6 @@ class HFAutoAdapter(Plugin):
 
         Supports GPT-2 and LLaMA/Qwen2/Qwen3/Mistral without full attention matrices.
         """
-        import math
-
         m = _base(model)
         block = self.layers(model)[layer - 1]
         B, T, _ = hidden_in.shape

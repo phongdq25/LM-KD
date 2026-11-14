@@ -9,6 +9,7 @@ Provides:
 
 from __future__ import annotations
 
+import ctypes
 import math
 from typing import Any, Literal, overload
 
@@ -34,7 +35,6 @@ try:
     # cuCtxGetDevice_v2 is broken on some CUDA builds (returns wrong/garbage device IDs).
     # numba always prefers _v2 variants; override the binding to use the plain variant.
     def _patch_numba_ctx_get_device():
-        import ctypes
         try:
             from numba.cuda.cudadrv import driver as _drv_mod
             from numba.cuda.cudadrv import drvapi as _drvapi

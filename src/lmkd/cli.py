@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 
 def _load(args):
     """Recipe + ``--set`` overrides + ``--plugins`` (appended to the recipe's ``imports:``)."""
-    from pathlib import Path
-
     from lmkd.core.config import deep_merge, load_recipe, load_yaml_with_bases, recipe_from_dict
 
     configs = args.config if isinstance(args.config, list) else [args.config]
@@ -58,8 +58,6 @@ def _cmd_list(args) -> int:
 
 
 def _cmd_check(args) -> int:
-    import json
-
     from lmkd.core.validate import check_recipe, preflight
 
     cfg = _load(args)
@@ -130,8 +128,6 @@ def _cmd_pipeline(args) -> int:
 
 
 def _cmd_eval(args) -> int:
-    import json
-
     from lmkd.train.builder import build_runtime
     from lmkd.train.checkpointing import resolve_checkpoint
 
@@ -188,11 +184,13 @@ def _cmd_explain(args) -> int:
 def _cmd_try(args) -> int:
     """Run a fast 1-step test with synthetic tensors on tiny models to verify loss & gradients in seconds."""
     from lmkd.core.registry import CRITERIONS
-    from lmkd.plugins import load_plugins
+    from lmkd.plugins import discover_dev_plugin, load_plugins
     from lmkd.scaffold.probe import probe_gradient
 
     load_plugins(args.plugins)
     name = args.loss
+    if name not in CRITERIONS:
+        discover_dev_plugin(name)
     if name not in CRITERIONS:
         print(f"Error: loss '{name}' is not registered in CRITERIONS.")
         return 1
@@ -229,6 +227,7 @@ def _cmd_init(args) -> int:
         target=args.target,
         domain=args.domain,
         force=args.force,
+        minimal=args.minimal,
     )
 
 
@@ -323,6 +322,12 @@ def main(argv: list[str] | None = None) -> int:
         help="shortcut for --target dev (creates in dev/<name>)",
     )
     pinit.add_argument("-d", "--domain", default=None, help="optional domain subfolder (e.g. self_distill)")
+    pinit.add_argument(
+        "-m",
+        "--minimal",
+        action="store_true",
+        help="scaffold a minimal loss-only package (__init__.py, loss.py, recipe.yaml, test)",
+    )
     pinit.add_argument("-f", "--force", action="store_true", help="overwrite existing template files")
     pinit.set_defaults(fn=_cmd_init)
 

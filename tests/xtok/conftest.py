@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 
 import pytest
+from tests.conftest import _make_gpt2
+from tokenizers import Tokenizer, decoders, models, pre_tokenizers, trainers
+from transformers import PreTrainedTokenizerFast
 
 from lmkd.core.config import ModelSpec
 from lmkd.core.registry import TRANSFORMS
@@ -15,10 +18,6 @@ from lmkd.models.loading import load_tokenizer
 
 @pytest.fixture(scope="session")
 def xtok_models(tmp_path_factory, tiny_models, toy_jsonl):
-    from tests.conftest import _make_gpt2
-    from tokenizers import Tokenizer, decoders, models, pre_tokenizers, trainers
-    from transformers import PreTrainedTokenizerFast
-
     rows = [json.loads(line) for line in open(toy_jsonl)]
     corpus = [f"{r['prompt']} {r['response']}" for r in rows] + [r["response"] for r in rows]
     tk = Tokenizer(models.BPE(unk_token=None))

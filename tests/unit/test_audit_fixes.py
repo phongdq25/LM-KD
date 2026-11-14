@@ -1,14 +1,23 @@
 """Unit tests verifying audit bug fixes across CLI, data, longcot, and teachers."""
 
+import warnings
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 import torch
+import yaml
 
 from baselines.longCoT.sgl_spectral import compute_transition_hidden_index
 from baselines.longCoT.ssft import SelectCumulativeStrength
 from baselines.self_distill.sdpo import SDPOReprompt
+from lmkd.cli import main
 from lmkd.core.batch import Batch
+from lmkd.core.config import TrainSection
+from lmkd.data.producers import AdaptiveSGOProducer, DatasetProducer
+from lmkd.models.loading import _check_tied_lora_targets
+from lmkd.train.engine import MasterWeightOptimizer
+from lmkd.train.step_strategies import StandardStep
 
 
 def test_transition_hidden_index_integer_offset():
@@ -73,10 +82,6 @@ def test_sdpo_reprompt_uses_raw_prompt_without_double_templating():
 
 
 def test_cli_set_action_extends(tmp_path, capsys):
-    import yaml
-
-    from lmkd.cli import main
-
     data = {
         "models": {"student": {"path": "dummy-gpt2"}},
         "data": {"train": {"type": "jsonl", "path": "train.jsonl"}},
@@ -95,8 +100,6 @@ def test_cli_set_action_extends(tmp_path, capsys):
 
 
 def test_adaptive_sgo_on_eval_and_sync_rng():
-    from lmkd.data.producers import AdaptiveSGOProducer
-
     cfg = AdaptiveSGOProducer.Config(sampling={}, dev_metric="dev_loss/loss", init_threshold=0.2, loss_eps=0.05)
     prod = AdaptiveSGOProducer(cfg)
 
@@ -109,8 +112,6 @@ def test_adaptive_sgo_on_eval_and_sync_rng():
 
 def test_master_weight_optimizer_bf16_updates():
     """Verify MasterWeightOptimizer prevents bf16 mantissa truncation on small updates."""
-    from lmkd.train.engine import MasterWeightOptimizer
-
     p_master = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.bfloat16))
     opt_master = MasterWeightOptimizer(torch.optim.AdamW([p_master], lr=1e-5))
 
@@ -143,8 +144,6 @@ def test_master_weight_optimizer_bf16_updates():
 
 def test_step_strategy_nonfinite_all_reduce():
     """Verify nonfinite decision is synchronized across distributed ranks."""
-    from lmkd.train.step_strategies import StandardStep
-
     class MockDistEngine:
         world_size = 2
         device = torch.device("cpu")
@@ -164,11 +163,6 @@ def test_step_strategy_nonfinite_all_reduce():
 
 def test_batch_size_divisibility_validations():
     """Verify batch_size divisibility validations."""
-    import pytest
-
-    from lmkd.core.config import TrainSection
-    from lmkd.data.producers import DatasetProducer
-
     # TrainSection validates micro_batch_size > batch_size
     with pytest.raises(ValueError, match="cannot exceed batch_size"):
         TrainSection(batch_size=4, micro_batch_size=8)
@@ -189,18 +183,12 @@ def test_batch_size_divisibility_validations():
 
 def test_tied_word_embeddings_lora_warning():
     """Verify explicit warning is issued when LoRA targets tied lm_head/embeddings."""
-    import pytest
-
-    from lmkd.models.loading import _check_tied_lora_targets
-
     # Model with tied embeddings and lm_head targeted
     mock_model = SimpleNamespace(config=SimpleNamespace(tie_word_embeddings=True))
     with pytest.warns(UserWarning, match="tie_word_embeddings=True.*tied modules \\['lm_head'\\]"):
         _check_tied_lora_targets(mock_model, {"target_modules": ["c_attn", "lm_head"]})
 
     # Model with tied embeddings but attention-only LoRA -> no warning
-    import warnings
-
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         _check_tied_lora_targets(mock_model, {"target_modules": ["c_attn", "c_proj"]})

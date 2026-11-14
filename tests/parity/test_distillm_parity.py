@@ -1,8 +1,8 @@
 import pytest
 import torch
+from tests.parity._ref import distillm_ref as distillm
 
 from lmkd.losses.functional.divergences import get_divergence
-from tests.parity._ref import distillm_ref as distillm
 
 
 @pytest.mark.parity

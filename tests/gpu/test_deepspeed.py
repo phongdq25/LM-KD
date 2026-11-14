@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 pytestmark = [
     pytest.mark.gpu,
@@ -57,7 +58,12 @@ def _torchrun(spec: dict, d: Path) -> dict:
         str(WORKER),
         str(d / "spec.json"),
     ]
-    env = {**os.environ, "CUDA_VISIBLE_DEVICES": os.environ.get("CUDA_VISIBLE_DEVICES", "0,1"), "OMP_NUM_THREADS": "1"}
+    env = {
+        **os.environ,
+        "CUDA_VISIBLE_DEVICES": os.environ.get("CUDA_VISIBLE_DEVICES", "0,1"),
+        "OMP_NUM_THREADS": "1",
+        "NVIDIA_TF32_OVERRIDE": "0",
+    }
     r = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=600)
     rank_lines = "\n".join(l for l in (r.stdout + r.stderr).splitlines() if l.startswith("[rank0]"))
     assert r.returncode == 0, rank_lines[-6000:] or (r.stdout[-3000:] + r.stderr[-3000:])
@@ -66,8 +72,6 @@ def _torchrun(spec: dict, d: Path) -> dict:
 
 @pytest.fixture(scope="module")
 def no_dropout_models(tiny_models, tmp_path_factory):
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-
     root = tmp_path_factory.mktemp("nodrop")
     out = {}
     for side in ("student", "teacher"):
@@ -178,8 +182,6 @@ def test_zero2_matches_local(zero2_run, local_params):
 
 
 def test_aux_module_grads_synced(zero2_run, local_params, no_dropout_models):
-    from transformers import AutoModelForCausalLM
-
     res, ds = zero2_run
     assert res["proj_same_across_ranks"]
     proj = [k for k in ds if k.startswith("mods.")]
@@ -192,8 +194,6 @@ def test_aux_module_grads_synced(zero2_run, local_params, no_dropout_models):
 
 
 def test_zero3_save_model(base_recipe_module, no_dropout_models, local_params, tmp_path):
-    from transformers import AutoModelForCausalLM
-
     res, ds = _run_train(base_recipe_module, no_dropout_models, tmp_path, 3, save_model=True)
     assert res["zero_stage"] == 3 and res["proj_same_across_ranks"]
     _assert_matches(local_params, ds)

@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
+from lmkd.core.registry import EVALUATORS
+from lmkd.data.transforms.tokenize import render_prompt
+from lmkd.eval.generation import generate_for_records
 from lmkd.eval.graders import BoxedBuiltinGrader, rouge_metrics
 from lmkd.eval.metrics import aggregate_passk, score_generations
+from lmkd.rollout.base import Rollout, SamplingSpec
 
 
 def test_aggregate_passk():
@@ -121,10 +127,6 @@ def test_pure_functions_no_runtime():
 
 
 def test_render_prompt_system_and_chat_template():
-    from unittest.mock import MagicMock
-
-    from lmkd.data.transforms.tokenize import render_prompt
-
     tok = MagicMock()
     tok.chat_template = "{% for m in messages %}{{ m.role }}: {{ m.content }}\n{% endfor %}"
 
@@ -180,11 +182,6 @@ def test_render_prompt_system_and_chat_template():
 
 
 def test_generate_for_records_chat_template():
-    from unittest.mock import MagicMock
-
-    from lmkd.eval.generation import generate_for_records
-    from lmkd.rollout.base import Rollout, SamplingSpec
-
     tok = MagicMock()
     tok.chat_template = "template"
     tok.bos_token_id = 1
@@ -236,10 +233,6 @@ def test_generate_for_records_chat_template():
 
 
 def test_lm_eval_evaluator_plugin(tmp_path):
-    from unittest.mock import MagicMock, patch
-
-    from lmkd.core.registry import EVALUATORS
-
     evaluator = EVALUATORS.build(
         {
             "type": "lm_eval",
@@ -271,8 +264,8 @@ def test_lm_eval_evaluator_plugin(tmp_path):
     }
 
     with (
-        patch("lm_eval.models.huggingface.HFLM") as mock_hflm,
-        patch("lm_eval.simple_evaluate", return_value=mock_res) as mock_eval,
+        patch("lm_eval.models.huggingface.HFLM"),
+        patch("lm_eval.simple_evaluate", return_value=mock_res),
     ):
         metrics = evaluator.evaluate(rt)
 
@@ -284,10 +277,6 @@ def test_lm_eval_evaluator_plugin(tmp_path):
 
 
 def test_lm_eval_evaluator_vllm_backend(tmp_path):
-    from unittest.mock import MagicMock, patch
-
-    from lmkd.core.registry import EVALUATORS
-
     evaluator = EVALUATORS.build(
         {
             "type": "lm_eval",
@@ -316,7 +305,7 @@ def test_lm_eval_evaluator_vllm_backend(tmp_path):
 
     with (
         patch("lm_eval.models.vllm_causallms.VLLM") as mock_vllm,
-        patch("lm_eval.simple_evaluate", return_value=mock_res) as mock_eval,
+        patch("lm_eval.simple_evaluate", return_value=mock_res),
     ):
         metrics = evaluator.evaluate(rt)
 

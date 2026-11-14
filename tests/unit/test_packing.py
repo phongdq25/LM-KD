@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -12,7 +13,7 @@ from lmkd.core.config import recipe_from_dict
 from lmkd.data.collator import Collator
 from lmkd.data.labels import make_labels
 from lmkd.data.packing import LengthGroupedSampler, MultipackBatchSampler, ffd_bins, pack_samples
-from lmkd.data.producers import EpochSampler
+from lmkd.data.producers import EpochSampler, PackedDatasetProducer
 from lmkd.models.forward import side_inputs
 from lmkd.train.builder import build_runtime
 from lmkd.train.step_strategies import count_supervised
@@ -162,10 +163,6 @@ def test_packed_requires_safe_attention(base_recipe):
 def test_packed_flash_rejects_multi_row_micro_batch(base_recipe):
     # T02 report: HF flash-attn varlen only isolates samples when the forward
     # has a single row, so safe packing must use micro_batch_size == 1 (see "Future work" in the report).
-    from types import SimpleNamespace
-
-    from lmkd.data.producers import PackedDatasetProducer
-
     base_recipe["data"]["packing"] = True
     base_recipe["models"]["student"]["attn_implementation"] = "flash_attention_2"
     base_recipe["train"]["batch_size"] = 4

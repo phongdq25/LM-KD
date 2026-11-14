@@ -1,6 +1,7 @@
 """Tests for Phase 3: lmkd.quick API and CLI commands explain & try."""
 
 import lmkd
+from lmkd.cli import main
 
 
 def test_quick_api_builds_runtime(tiny_models, toy_jsonl):
@@ -28,8 +29,6 @@ def test_quick_api_builds_runtime(tiny_models, toy_jsonl):
 
 
 def test_cli_explain(capsys):
-    from lmkd.cli import main
-
     ret = main(["explain", "-c", "recipes/same_tokenizer/fkl.yaml"])
     assert ret == 0
     captured = capsys.readouterr().out
@@ -39,8 +38,6 @@ def test_cli_explain(capsys):
 
 
 def test_cli_try(capsys):
-    from lmkd.cli import main
-
     ret = main(["try", "nll"])
     assert ret == 0
     captured = capsys.readouterr().out

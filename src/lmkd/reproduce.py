@@ -168,6 +168,7 @@ def _configure(
             "answer_gain",
             "palign_search",
             "generate",
+            "sample_candidates",
             "ssft",
             "palign",
             "sgl_spectral",
@@ -316,7 +317,7 @@ def _environment(name, jobs):
             versions[package] = metadata.version(package)
         except metadata.PackageNotFoundError:
             versions[package] = "missing"
-    roots = [ROOT / "src/lmkd"]
+    roots = [p for p in (ROOT / "src/lmkd", ROOT / "src/baselines") if p.exists()]
     hashes = {
         str(path): hashlib.sha256(path.read_bytes()).hexdigest()
         for root in roots

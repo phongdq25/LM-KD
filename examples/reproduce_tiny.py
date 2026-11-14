@@ -17,7 +17,7 @@ from lmkd.reproduce import execute_plan, resolve_jobs, validate_jobs, write_plan
 def make_models(root):
     """Save tiny causal student, a different-tokenizer teacher and an encoder."""
     torch.manual_seed(42)
-    words = [f"w{i}" for i in range(60)] + [".", "1", "<think>", "</think>"]
+    words = [f"w{i}" for i in range(60)] + [".", "1", "A", "B", "<think>", "</think>"]
     paths = {key: root / key for key in ("student", "teacher", "encoder")}
     for key, path in paths.items():
         units = list("abcdefghijklmnopqrstuvwxyz0123456789 .") if key == "teacher" else words
@@ -67,16 +67,27 @@ def smoke_jobs(root, models_, data):
                 "overrides": ["models.teacher.dtype=fp32"]},
         "uld": {"data": data["sft"], "teacher": models_["teacher"],
                 "overrides": ["models.teacher.dtype=fp32"]},
-        "sgl_spectral": {"data": data["cot"], "overrides": ["pipeline.0.energy_cutoff=0.95"]},
+        "sgl_spectral": {
+            "data": data["cot"],
+            "overrides": ["pipeline.0.energy_cutoff=0.95", "pipeline.0.tokenize_verify=false"],
+        },
         "grpo": {"data": data["math"], "overrides": ["rollout={type: hf}", "producer.n=2",
                                                          "producer.sampling.max_new_tokens=4", "step.epochs=1",
                                                          "data.transforms.0.use_chat_template=false"]},
-        "vpd": {"data": data["preference"], "teacher": models_["student"],
-                "overrides": ["pipeline.1.max_length=64",
-                              "pipeline.1.max_prompt_length=32",
-                              "pipeline.2.transforms.0.max_length=64",
-                              "pipeline.2.transforms.0.max_prompt_length=32",
-                              "pipeline.2.transforms.0.format_plain_prompts=false"]},
+        "vpd": {
+            "data": data["preference"],
+            "teacher": models_["student"],
+            "overrides": [
+                "train.micro_batch_size=4",
+                "pipeline.1.max_new_tokens=4",
+                "pipeline.2.max_length=64",
+                "pipeline.2.max_prompt_length=32",
+                "pipeline.3.transforms.0.max_length=64",
+                "pipeline.3.transforms.0.max_prompt_length=32",
+                "pipeline.3.transforms.0.format_plain_prompts=false",
+                "pipeline.3.transforms.0.mcq_confidence_filter=false",
+            ],
+        },
         "talas_asam": {"student": models_["encoder"], "data": data["embedding"],
                        "embedding_teacher": models_["encoder"],
                        "overrides": [f"models.student.tokenizer={models_['encoder']}", "pipeline.1.pooling=cls",

@@ -8,8 +8,11 @@ from transformers import AutoTokenizer
 from baselines.longCoT import RenderCoT, Segment, TokenizeCoT
 from baselines.longCoT.sgl_spectral import Provenance, SelectEnergyTopP, StepTransitions, TailBoost
 from baselines.longCoT.ssft import SelectCumulativeStrength
+from lmkd.core.config import recipe_from_dict
 from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import TRANSFORMS
+from lmkd.core.validate import check_recipe
+from lmkd.data.collator import Collator
 from lmkd.data.context import DataContext
 from lmkd.data.transforms.base import CorpusTransform, run_transforms
 
@@ -182,8 +185,6 @@ def test_corpus_transform_fit_called(tiny_models):
 
 
 def test_render_tokenize_segment_collate(tiny_models):
-    from lmkd.data.collator import Collator
-
     ctx = _make_dummy_ctx(tiny_models, max_length=128)
     sample = {
         "problem": "What is 2+2?",
@@ -209,9 +210,6 @@ def test_render_tokenize_segment_collate(tiny_models):
 
 
 def test_check_recipe_requires_missing_signal(base_recipe):
-    from lmkd.core.config import recipe_from_dict
-    from lmkd.core.validate import check_recipe
-
     base_recipe["data"]["transforms"] = [
         {"type": "render_cot"},
         {"type": "tokenize_cot"},

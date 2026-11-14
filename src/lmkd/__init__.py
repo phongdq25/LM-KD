@@ -5,9 +5,10 @@ Users: README.md (CLI + Python API). See official_docs/ for full technical docum
 Python API (imported lazily, ``import lmkd`` stays cheap)::
 
     lmkd.build(recipe, ...) -> Runtime      lmkd.run(recipe, ...) -> Runtime (= lmkd train)
-    lmkd.load_recipe(path, overrides)       lmkd.load_plugins([...])
-    @lmkd.register_loss(name, ...)          # tier-1 loss function -> criterion
-    @lmkd.compute_loss(name)                # tier-0 loss function -> algorithm compute_loss
+    lmkd.quick(student, data, loss=...)     lmkd.load_plugins([...])
+    @lmkd.loss(name, ...)                   # Level 1: target-aligned functional loss (recommended)
+    class MyLoss(lmkd.Criterion): ...       # Level 2: class-based criterion (+ aux modules)
+    @lmkd.register_loss / @lmkd.compute_loss  # HF-positional compat for raw Trainer ports
 """
 
 __version__ = "0.1.0.dev0"
@@ -28,11 +29,42 @@ _EXPORTS = {
     "quick": "lmkd.api",
     "load_recipe": "lmkd.core.config",
     "load_plugins": "lmkd.plugins",
+    # Level 1: @lmkd.loss API
     "loss": "lmkd.losses.loss_decorator",
     "TokenLoss": "lmkd.losses.loss_decorator",
     "SeqLoss": "lmkd.losses.loss_decorator",
     "ScalarLoss": "lmkd.losses.loss_decorator",
     "Inputs": "lmkd.losses.loss_decorator",
+    # Level 2: Criterion contract & feature declarations
+    "Criterion": "lmkd.losses.base",
+    "LossContext": "lmkd.losses.base",
+    "LossOutput": "lmkd.losses.base",
+    "LossTerm": "lmkd.losses.base",
+    "ModelPairInfo": "lmkd.losses.base",
+    "PrepareContext": "lmkd.losses.base",
+    "FeatureRequest": "lmkd.models.forward",
+    "SideRequest": "lmkd.models.forward",
+    "SideOutput": "lmkd.models.forward",
+    "TeacherSignalSpec": "lmkd.teachers.signals",
+    "TeacherOutput": "lmkd.teachers.signals",
+    # Core data, plugin & registry primitives
+    "Batch": "lmkd.core.batch",
+    "FieldSpec": "lmkd.core.batch",
+    "FIELDS": "lmkd.core.batch",
+    "BaseConfig": "lmkd.core.plugin",
+    "Plugin": "lmkd.core.plugin",
+    "CRITERIONS": "lmkd.core.registry",
+    "TRANSFORMS": "lmkd.core.registry",
+    "ALIGNERS": "lmkd.core.registry",
+    "PRODUCERS": "lmkd.core.registry",
+    "TEACHERS": "lmkd.core.registry",
+    "TEACHER_INPUTS": "lmkd.core.registry",
+    "ALGORITHMS": "lmkd.core.registry",
+    "STEP_STRATEGIES": "lmkd.core.registry",
+    "CALLBACKS": "lmkd.core.registry",
+    "EVALUATORS": "lmkd.core.registry",
+    "STAGES": "lmkd.core.registry",
+    # Legacy HF-positional compat helpers (for porting raw Trainer scripts verbatim)
     "register_loss": "lmkd.losses.hf_compat",
     "compute_loss": "lmkd.losses.hf_compat",
     "ModelView": "lmkd.losses.hf_compat",

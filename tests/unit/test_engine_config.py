@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -117,8 +118,6 @@ def test_zero0_low_precision_rejected(precision):
 
 
 def test_accelerate_engine_setup_infers_from_train_and_grad():
-    from types import SimpleNamespace
-
     eng = _engine(2)
     assert eng.cfg.batch_size is None
     assert eng.cfg.micro_batch_size is None

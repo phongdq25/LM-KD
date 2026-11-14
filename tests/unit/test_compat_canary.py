@@ -8,12 +8,17 @@ import importlib
 import inspect
 import re
 import sys
+from importlib import metadata
 from pathlib import Path
 
 import pytest
 import torch
+from transformers import GPT2Config, GPT2LMHeadModel, Qwen2Config, Qwen2ForCausalLM, get_wsd_schedule
 
 from lmkd.compat import PINNED_LIBRARIES, ds_api, hf_api, installed_versions, vllm_api
+from lmkd.models.adapters import HFAutoAdapter
+from lmkd.rollout.weight_sync import clean_peft_name
+from lmkd.train.schedules import wsd
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -47,10 +52,6 @@ def test_torch_muon_and_fused_adamw():
 # ------------------------------------------------------------------------------ transformers
 def test_wsd_matches_transformers_public_schedule():
     """``lmkd.train.schedules.wsd`` is our own formula; get_wsd_schedule is the public reference."""
-    from transformers import get_wsd_schedule
-
-    from lmkd.train.schedules import wsd
-
     total, warm, dec = 40, 5, 12
     for decay_type in ("linear", "cosine", "1-sqrt"):
         p = torch.nn.Parameter(torch.zeros(1))
@@ -82,8 +83,6 @@ def test_rotary_helper_exists_for_supported_architectures(model_type):
 
 def test_decoder_layer_hooks_see_hidden_states_kwarg():
     """ForwardRunner hooks read ``hidden_states`` from args/kwargs of the decoder block."""
-    from transformers import GPT2Config, GPT2LMHeadModel
-
     model = GPT2LMHeadModel(GPT2Config(vocab_size=11, n_positions=16, n_embd=8, n_layer=2, n_head=2))
     seen = []
     h = model.transformer.h[0].register_forward_pre_hook(
@@ -96,10 +95,6 @@ def test_decoder_layer_hooks_see_hidden_states_kwarg():
 
 def test_hf_adapter_last_row_attention_runs_on_supported_models():
     """The only place that re-implements attention internals: gpt2 + one rotary architecture."""
-    from transformers import GPT2Config, GPT2LMHeadModel, Qwen2Config, Qwen2ForCausalLM
-
-    from lmkd.models.adapters import HFAutoAdapter
-
     models = [
         GPT2LMHeadModel(GPT2Config(vocab_size=20, n_positions=16, n_embd=16, n_layer=2, n_head=2)),
         Qwen2ForCausalLM(
@@ -123,10 +118,6 @@ def test_hf_adapter_last_row_attention_runs_on_supported_models():
 
 def test_hf_adapter_last_row_attention_right_padding():
     """Verify right padding is masked out and query is at the last valid position."""
-    from transformers import GPT2Config, GPT2LMHeadModel, Qwen2Config, Qwen2ForCausalLM
-
-    from lmkd.models.adapters import HFAutoAdapter
-
     models = [
         GPT2LMHeadModel(GPT2Config(vocab_size=20, n_positions=16, n_embd=16, n_layer=2, n_head=2)),
         Qwen2ForCausalLM(
@@ -216,14 +207,12 @@ def test_vllm_in_process_model_lookup_error_is_explicit():
 # ------------------------------------------------------------------------------ peft
 def test_peft_api_used_for_weight_sync():
     peft = pytest.importorskip("peft")
-    from transformers import GPT2Config, GPT2LMHeadModel
 
     base = GPT2LMHeadModel(GPT2Config(vocab_size=11, n_positions=16, n_embd=8, n_layer=1, n_head=2))
     m = peft.get_peft_model(base, peft.LoraConfig(r=2, target_modules=["c_attn"], fan_in_fan_out=True))
     for name in ("merge_adapter", "unmerge_adapter", "disable_adapter"):
         assert hasattr(m, name), f"PeftModel.{name} disappeared"
     assert hasattr(peft, "set_peft_model_state_dict")
-    from lmkd.rollout.weight_sync import clean_peft_name
 
     names = [n for n, _ in m.named_parameters()]
     assert any(".base_layer." in n for n in names), "PEFT no longer wraps targets in base_layer"
@@ -233,8 +222,6 @@ def test_peft_api_used_for_weight_sync():
 
 # ------------------------------------------------------------------------------ trl (vllm_server rollout, KTO runner)
 def test_trl_version_matches_pin():
-    from importlib import metadata
-
     pins = _pins()
     assert "trl" in pins, "trl is no longer pinned in pyproject.toml; lmkd.compat.trl_api targets a specific version"
     assert metadata.version("trl") == pins["trl"], (

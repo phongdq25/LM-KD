@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import multiprocessing as mp
+import pickle
 from typing import Any, ClassVar
 
 from lmkd.core.plugin import BaseConfig
@@ -93,9 +95,6 @@ class PrepareDataset(Stage):
             logger.warning("num_proc ignored: CorpusTransform must be fitted on the whole corpus, not per chunk")
         elif self.cfg.num_proc > 1 and len(records) > 0:
             try:
-                import multiprocessing as mp
-                import pickle
-
                 pickle.dumps((transforms, data_ctx))
                 chunk_size = max(1, len(records) // (self.cfg.num_proc * 2))
                 chunks = [

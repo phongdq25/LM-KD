@@ -14,6 +14,7 @@ from tests.parity._ref.mined_ref import (
 )
 from tests.parity._ref.mlot_ref import compute_multi_level_ot_loss_ref
 from tests.parity._ref.uld_ref import compute_universal_logit_distillation_loss_ref
+from tests.parity._ref.xtok_ref import _span_align
 from tests.parity._xtok_utils import pad_pos, pos_to_tgt_labels
 
 from baselines.cross_tokenizer.escot import ESCOT
@@ -336,8 +337,6 @@ def test_escot_parity():
     # Now construct span_pairs for LM-KD target-aligned format:
     # Remember: ref computes span alignment on s_spans, t_spans where position p is positional.
     # In LM-KD target-aligned format, target position t = p + 1.
-    from tests.parity._ref.xtok_ref import _span_align
-
     span_pairs_batch: list[torch.Tensor] = []
     for b in range(B):
         s_valid = (labels_s[b] != -100).nonzero(as_tuple=False).flatten().tolist()

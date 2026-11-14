@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import time
 from dataclasses import dataclass
@@ -107,7 +108,9 @@ class ArtifactStore:
 
         files = {}
         for p in sorted(work_dir.rglob("*")):
-            if p.is_file() and p.name not in ("manifest.json", "manifest.json.tmp"):
+            if p.is_file() and p.name != "manifest.json" and not (
+                p.name.startswith("manifest.json.") and p.name.endswith(".tmp")
+            ):
                 rel = str(p.relative_to(work_dir))
                 files[rel] = content_hash(p)
 
@@ -131,9 +134,9 @@ class ArtifactStore:
             if k not in data:
                 data[k] = v
 
-        tmp = work_dir / "manifest.json.tmp"
+        tmp = work_dir / f"manifest.json.{os.getpid()}.tmp"
         tmp.write_text(json.dumps(data, indent=2, default=str))
-        tmp.rename(work_dir / "manifest.json")
+        os.replace(tmp, work_dir / "manifest.json")
 
         if work_dir != art.path:
             if art.path.exists():

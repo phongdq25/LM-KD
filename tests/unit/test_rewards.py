@@ -1,11 +1,25 @@
 """T25: verifiers return one score and actionable feedback per completion."""
 
+import ctypes
 import json
 import mmap
+import platform
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 from lmkd.rl.rewards import MCQ, CodeSandbox, MathVerify, as_trl_reward, last_boxed
+
+
+def _has_landlock_v3() -> bool:
+    if platform.system() != "Linux" or platform.machine() != "x86_64":
+        return False
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        return int(libc.syscall(444, 0, 0, 1)) >= 3
+    except OSError:
+        return False
 
 
 def test_last_boxed():
@@ -45,6 +59,7 @@ def test_as_trl_reward():
     assert reward.__name__ == "mcq"
 
 
+@pytest.mark.skipif(not _has_landlock_v3(), reason="Requires Linux Landlock ABI >= 3 (kernel >= 6.2)")
 def test_code_sandbox_feedback():
     verifier = CodeSandbox(CodeSandbox.Config(timeout_s=0.3, memory_mb=256))
     meta = [{"ground_truth": json.dumps([{"input": "2\n", "output": "4"}])}]
@@ -55,6 +70,7 @@ def test_code_sandbox_feedback():
     assert timeout["score"] == 0.0 and "timeout" in timeout["feedback"].lower()
 
 
+@pytest.mark.skipif(not _has_landlock_v3(), reason="Requires Linux Landlock ABI >= 3 (kernel >= 6.2)")
 def test_code_sandbox_test_code():
     result = CodeSandbox()(["p"], ["def add(a, b): return a+b"], [{"ground_truth": "assert add(2, 3) == 5"}])
     assert result[0]["score"] == 1.0
@@ -72,6 +88,7 @@ def test_math_verify_timeout(monkeypatch):
     assert time.monotonic() - start < 0.5
 
 
+@pytest.mark.skipif(not _has_landlock_v3(), reason="Requires Linux Landlock ABI >= 3 (kernel >= 6.2)")
 def test_code_sandbox_restricts_network_and_writes(tmp_path):
     outside = tmp_path / "outside.txt"
     code = (
@@ -86,6 +103,7 @@ def test_code_sandbox_restricts_network_and_writes(tmp_path):
     assert not outside.exists()
 
 
+@pytest.mark.skipif(not _has_landlock_v3(), reason="Requires Linux Landlock ABI >= 3 (kernel >= 6.2)")
 def test_code_sandbox_after_large_parent_mapping():
     # CUDA/vLLM can reserve far more virtual memory than the verifier's child limit.
     with mmap.mmap(-1, 1024**3):

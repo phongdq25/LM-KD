@@ -4,19 +4,25 @@ from __future__ import annotations
 
 import contextlib
 import json
+import warnings
 from pathlib import Path
 from typing import Any, ClassVar
 
 import torch
+from safetensors.torch import load_file
 
 from lmkd.core.batch import Batch
 from lmkd.core.plugin import BaseConfig, Plugin
-from lmkd.core.registry import TEACHERS
+from lmkd.core.registry import TEACHERS, WEIGHT_POLICIES
 from lmkd.core.state import TrainState
+from lmkd.data.transforms.listwise import tokenize_fingerprint
+from lmkd.models.adapters import get_base_head
 from lmkd.models.forward import ForwardRunner, SideOutput, SideRequest, side_inputs
 from lmkd.models.logits_view import LogitsView
 from lmkd.rollout.base import ScoreSpec
+from lmkd.rollout.vllm_colocate import make_llm, score_with_llm
 from lmkd.teachers.signals import TeacherOutput, TeacherSignalSpec, gather_positions, response_shift_index
+from lmkd.teachers.weight_policies import EMA, LoraDisabled, TrustRegion
 
 
 class TeacherProvider(Plugin):
@@ -135,8 +141,6 @@ class SelfTeacher(TeacherProvider):
 
     def setup(self, rt: Any) -> None:
         super().setup(rt)
-        from lmkd.core.registry import WEIGHT_POLICIES
-
         self.policy = WEIGHT_POLICIES.build(self.cfg.weight_policy)
         self.policy.setup(rt)
 
@@ -151,9 +155,6 @@ class SelfTeacher(TeacherProvider):
         req = req or SideRequest(logits="view")
         if spec is not None and spec.kind in ("full", "topk", "sampled_logp", "seq_logp") and req.logits == "none":
             req = SideRequest(**{**req.__dict__, "logits": "view"})
-
-        from lmkd.models.adapters import get_base_head
-        from lmkd.teachers.weight_policies import EMA, LoraDisabled, TrustRegion
 
         if isinstance(self.policy, TrustRegion):
             return self._trust_region_signals(batch, spec, req, student, side)
@@ -212,8 +213,6 @@ class SelfTeacher(TeacherProvider):
         return so, view
 
     def _trust_region_signals(self, batch, spec, req, student, side):
-        import warnings
-
         head = self.rt.student_adapter.lm_head(self.rt.student_model)
         has_lora = head is not None and (hasattr(head, "base_layer") or hasattr(head, "original_module"))
         shared = self.policy.ref is None and not has_lora and not any(p.requires_grad for p in head.parameters())
@@ -296,8 +295,6 @@ class CacheTeacher(TeacherProvider):
         fps = batch.meta.get("meta.cache_tokenize_fp")
         if fps is None:
             return
-        from lmkd.data.transforms.listwise import tokenize_fingerprint
-
         lengths = batch["student.attention_mask"].sum(-1).tolist()
         ids = batch["student.input_ids"].tolist()
         labels = batch["student.labels"].tolist()
@@ -353,8 +350,6 @@ class VLLMScorerTeacher(TeacherProvider):
         max_model_len: int | None = None
 
     def setup(self, rt):
-        from lmkd.rollout.vllm_colocate import make_llm, score_with_llm
-
         self.rt = rt
         spec = rt.config.models.teacher
         if spec is None:
@@ -499,8 +494,6 @@ class EmbeddingStoreTeacher(TeacherProvider):
     def _read(path: Path) -> torch.Tensor:
         data: Any
         if path.suffix == ".safetensors":
-            from safetensors.torch import load_file
-
             data = load_file(str(path))
         else:
             data = torch.load(path, map_location="cpu")

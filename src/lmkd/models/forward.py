@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 
 from lmkd.core.batch import Batch
+from lmkd.core.registry import POOLERS
 from lmkd.models.adapters import HFAutoAdapter
 from lmkd.models.logits_view import LogitsView
 
@@ -121,11 +122,19 @@ class SideOutput:
 
     @property
     def num_layers(self) -> int:
-        return self.adapter.num_layers(self.model)
+        try:
+            return self.adapter.num_layers(self.model)
+        except RuntimeError:
+            hs = getattr(self._out, "hidden_states", None)
+            if hs is not None:
+                return max(0, len(hs) - 1)
+            raise
 
     def hidden(self, layer: int) -> torch.Tensor:
         """[B,T,D] hidden state of layer (0 = embeddings, L = last block, negatives allowed).
         NOTE: HF's last entry of hidden_states is already final-normed for most models."""
+        if layer == -1 and not self._captured and getattr(self._out, "hidden_states", None) is None:
+            return self.last_hidden
         if layer < 0:
             layer += self.num_layers + 1
         if layer in self._captured:
@@ -136,6 +145,14 @@ class SideOutput:
                 return self.last_hidden
             raise KeyError(f"hidden({layer}) not captured: declare it in FeatureRequest.hidden")
         return hs[layer]
+
+    def target_hidden(self, layer: int = -1) -> torch.Tensor:
+        """[B,T,D] target-aligned hidden state of layer (position t predicts token t; position 0 is zero)."""
+        h = self.hidden(layer)
+        out = torch.zeros_like(h)
+        if h.shape[1] > 1:
+            out[:, 1:] = h[:, :-1]
+        return out
 
     def attention(self, layer: int) -> torch.Tensor:
         att = self._out.attentions
@@ -154,8 +171,6 @@ class SideOutput:
     def pooled(self, layer: int, pooler: str) -> torch.Tensor:
         key = (layer, pooler)
         if key not in self._pooled:
-            from lmkd.core.registry import POOLERS
-
             self._pooled[key] = POOLERS.build(pooler)(self.hidden(layer), self.attention_mask)
         return self._pooled[key]
 
@@ -243,7 +258,8 @@ class _FeatureCapture:
         self.layers = adapter.layers(model)
         self.num_layers = len(self.layers)
         # HF already returns every layer when output_hidden_states=True: no hooks needed then.
-        self.hidden_spec: LayerSpec = "none" if need_all_hidden else req.hidden
+        pooled_layers: LayerSpec = tuple(layer for layer, _ in req.pooled) if req.pooled else "none"
+        self.hidden_spec: LayerSpec = "none" if need_all_hidden else _merge_layers(req.hidden, pooled_layers)
         self.attn_spec: LayerSpec = req.attention_last_row
         self.hidden: dict[int, torch.Tensor] = {}
         self.attn_last: dict[int, torch.Tensor] = {}
@@ -311,7 +327,7 @@ class ForwardRunner:
         """
         if not req.needs_forward:
             return []
-        need_all_hidden = req.hidden == "all" or bool(req.pooled)
+        need_all_hidden = req.hidden == "all"
         outs = []
         with torch.enable_grad() if grad else torch.no_grad():
             for _ in range(req.n_views):

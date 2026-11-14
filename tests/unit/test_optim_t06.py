@@ -1,10 +1,14 @@
 import warnings
+from pathlib import Path
 
 import pytest
 import torch
 import torch.nn as nn
+import transformers
 
 from lmkd.core import registry as R
+from lmkd.core.config import load_yaml_with_bases, recipe_from_dict
+from lmkd.core.validate import check_recipe
 from lmkd.train.optim import NamedParam, build_param_groups, talas_groups
 
 
@@ -88,8 +92,6 @@ def test_talas_groups_fixed_vs_compat():
 
 
 def test_polynomial_matches_hf():
-    import transformers
-
     p = nn.Parameter(torch.zeros(1))
     opt_hf = torch.optim.SGD([p], lr=1.0)
     sch_hf = transformers.get_polynomial_decay_schedule_with_warmup(
@@ -176,11 +178,6 @@ def test_lion_builder():
 
 
 def test_optim_muon_talas_recipe(base_recipe):
-    from pathlib import Path
-
-    from lmkd.core.config import load_yaml_with_bases, recipe_from_dict
-    from lmkd.core.validate import check_recipe
-
     base_path = Path("recipes/_base_/optim_muon_talas.yaml")
     assert base_path.exists()
     optim_cfg = load_yaml_with_bases(base_path)

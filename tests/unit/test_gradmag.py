@@ -10,6 +10,7 @@ from tests.parity._ref.gradmag_ref import approximate_gradmag_weights
 from lmkd.losses.aggregator import GradMag, Norms, WeightedOutput, WeightedSum
 from lmkd.losses.base import LossOutput, LossTerm
 from lmkd.train.multitask import gradmag_weights, task_grads
+from lmkd.train.step_strategies import MultiObjectiveGradStep, StandardStep
 
 
 @pytest.mark.parametrize("mode", ["approx_gradmag", "approx_gradmag_preserve_mag"])
@@ -61,8 +62,6 @@ def test_gradmag_combines_after_normalization():
 
 
 def test_step_grad_equals_weighted_sum():
-    from lmkd.train.step_strategies import MultiObjectiveGradStep
-
     param = torch.nn.Parameter(torch.tensor(2.0))
 
     class Engine:
@@ -102,8 +101,6 @@ def test_step_grad_equals_weighted_sum():
 
 
 def test_sum_combine_equals_standard():
-    from lmkd.train.step_strategies import MultiObjectiveGradStep, StandardStep
-
     param = torch.nn.Parameter(torch.tensor(2.0))
 
     class Algorithm:
@@ -139,8 +136,6 @@ def test_sum_combine_equals_standard():
 
 def test_multiobjective_and_pcgrad_normalize_metric_across_micros():
     """Verify MultiObjectiveGradStep (both gradmag and pcgrad) divides metric/* by len(micros)."""
-    from lmkd.train.step_strategies import MultiObjectiveGradStep
-
     param = torch.nn.Parameter(torch.tensor(2.0))
 
     class Algorithm:

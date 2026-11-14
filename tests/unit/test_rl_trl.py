@@ -13,6 +13,7 @@ from lmkd.core.batch import Batch
 from lmkd.core.state import TrainState
 from lmkd.losses.base import LossContext
 from lmkd.losses.rl import PPOClip
+from lmkd.models.adapters import ADAPTERS
 from lmkd.models.forward import ForwardRunner, SideRequest, side_inputs
 from lmkd.rl.rewards import MCQ, as_trl_reward
 
@@ -89,7 +90,6 @@ def _ppo_clip_matches_trl_bnpo(tiny_models, tmp_path):
         "advantages": torch.tensor([1.0, -1.0, 0.7, -0.7]),
     }
     batch = _grpo_batch(inputs)
-    from lmkd.models.adapters import ADAPTERS
 
     adapter = ADAPTERS.build("hf_auto")
     so = ForwardRunner.run(model, adapter, side_inputs(batch, "student"), SideRequest(logits="view"), grad=True)[0]

@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+import torch
+
 from baselines.longCoT.sgl_spectral import SpectralCapture
+from baselines.longCoT.sgl_spectral.spectral import analytic_gradients_and_entropies, effective_rank
+from lmkd.core.config import ModelSpec
 from lmkd.models.adapters import HFAutoAdapter
+from lmkd.models.loading import load_model
 from lmkd.pipeline.artifacts import Artifact
 from lmkd.pipeline.io import read_jsonl, write_jsonl
 from lmkd.pipeline.stage import StageContext
@@ -48,12 +54,6 @@ def test_capture_resume(tmp_path, tiny_models, monkeypatch) -> None:
 
 
 def test_target_alignment(tmp_path, tiny_models) -> None:
-    import torch
-
-    from baselines.longCoT.sgl_spectral.spectral import analytic_gradients_and_entropies, effective_rank
-    from lmkd.core.config import ModelSpec
-    from lmkd.models.loading import load_model
-
     data, samples = _data(tmp_path, count=1)
     output = Artifact("capture", "capture", tmp_path / "capture")
     stage = SpectralCapture(SpectralCapture.Config(model=tiny_models["student"], dtype="fp32", device="cpu"))
@@ -70,7 +70,7 @@ def test_target_alignment(tmp_path, tiny_models) -> None:
     k = effective_rank(s)
     leverage = u[:, :k].square().sum(-1)
     expected = [float(leverage[:2].mean()), float(leverage[2:].mean())]
-    assert actual["step_strength"] == __import__("pytest").approx(expected, abs=1e-5)
+    assert actual["step_strength"] == pytest.approx(expected, abs=1e-5)
 
 
 def test_shard_merge_matches_whole(tmp_path, tiny_models) -> None:

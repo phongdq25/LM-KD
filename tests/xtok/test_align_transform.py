@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-import torch
 
-from lmkd.core.config import recipe_from_dict
+from lmkd.core.config import load_recipe, recipe_from_dict
 from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import ALIGNERS, TRANSFORMS
 from lmkd.core.validate import check_recipe
 from lmkd.data.aligners.base import Aligner
 from lmkd.data.collator import Collator
+from lmkd.data.context import DataContext
 from lmkd.data.transforms.base import run_transforms
+from lmkd.data.vocab_map import VocabMap
 from lmkd.pipeline.runner import build_runtime_for_pipeline, run_pipeline
+from lmkd.pipeline.stages.xtok import AlignPrecompute, VocabMapStage
 
 
 def _collator(ctx):
@@ -98,10 +101,6 @@ def test_check_requires_offsets(base_recipe, xtok_models):
 
 
 def test_xtok_base_recipe_checks():
-    from pathlib import Path
-
-    from lmkd.core.config import load_recipe
-
     path = Path(__file__).resolve().parents[2] / "recipes/cross_tokenizer/_base_xtok.yaml"
     cfg = load_recipe(str(path))
     names = [t["type"] if isinstance(t, dict) else t for t in cfg.data.transforms]
@@ -135,8 +134,6 @@ def _pipeline_cfg(base_recipe, xtok_models, toy_jsonl, tmp_path, workers=0):
 
 
 def test_align_precompute_cached(base_recipe, xtok_models, toy_jsonl, tmp_path, monkeypatch):
-    from lmkd.pipeline.stages.xtok import AlignPrecompute, VocabMapStage
-
     calls = {"align": 0, "vm": 0}
     for cls, key in ((AlignPrecompute, "align"), (VocabMapStage, "vm")):
         orig = cls.run
@@ -206,7 +203,6 @@ def test_on_fail_drop_vs_empty(xtok_records, xtok_ctx):
 # --------------------------------------------------------------------------- speed
 def test_offline_alignment_speed_1000_samples(xtok_samples, xtok_ctx):
     pytest.importorskip("editdistance")
-    from lmkd.data.vocab_map import VocabMap
 
     xtok_ctx.vocab_map = VocabMap.build(xtok_ctx.student_tokenizer, xtok_ctx.teacher_tokenizer)
     try:
@@ -234,7 +230,6 @@ def test_offline_alignment_speed_1000_samples(xtok_samples, xtok_ctx):
 # --------------------------------------------------------------------------- misc
 def test_load_vocab_map_transform_setup(xtok_models, xtok_tokenizers, tmp_path):
     stu, tea = xtok_tokenizers
-    from lmkd.data.context import DataContext
 
     rt = SimpleNamespace(
         student_tokenizer=stu, teacher_tokenizer=tea, data_ctx=DataContext(student_tokenizer=stu, teacher_tokenizer=tea)

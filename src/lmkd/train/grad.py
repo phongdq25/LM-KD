@@ -22,6 +22,7 @@ import torch
 
 from lmkd.core.plugin import BaseConfig, Plugin
 from lmkd.core.registry import GRAD_HOOKS, GRAD_TRANSFORMS
+from lmkd.models.forward import FeatureRequest, parse_target
 
 
 @dataclass
@@ -175,8 +176,6 @@ class TensorGradHook(Plugin):
         target: str  # "student.hidden[-8]" | "student.last_hidden" | "student.input_embeds"
 
     def features(self):
-        from lmkd.models.forward import FeatureRequest, parse_target
-
         side, _, req = parse_target(self.cfg.target)
         if side != "student":
             raise ValueError("grad hooks only apply to the student (teacher runs without grad)")
@@ -188,8 +187,6 @@ class TensorGradHook(Plugin):
 
 def attach_grad_hooks(hooks: list[TensorGradHook], student_view: Any, ctx: HookContext) -> None:
     """Register every hook on its target tensor of ``student_view`` (a SideOutput)."""
-    from lmkd.models.forward import parse_target
-
     for h in hooks:
         _, body, _ = parse_target(h.cfg.target)
         t = student_view.resolve(body)

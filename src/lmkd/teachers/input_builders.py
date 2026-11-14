@@ -10,7 +10,8 @@ from lmkd.core.batch import FIELDS, Batch, FieldSpec
 from lmkd.core.plugin import BaseConfig, Plugin
 from lmkd.core.registry import ALIGNERS, TEACHER_INPUTS
 from lmkd.data.labels import make_labels
-from lmkd.data.transforms.tokenize import render_prompt
+from lmkd.data.spans import ids_offsets, prompt_response_offsets
+from lmkd.data.transforms.tokenize import render_prompt, tokenize_prompt_response
 
 FIELDS.register(FieldSpec("rollout.has_signal", "scalar", torch.float32))
 
@@ -162,8 +163,6 @@ class PrivilegedPrompt(TeacherInputBuilder):
         return _collate_teacher_prompts_and_responses(batch, rt, tok, teacher_prompts)
 
 
-
-
 @TEACHER_INPUTS.register("retokenize")
 class Retokenize(TeacherInputBuilder):
     """Cross-tokenizer: re-tokenize the student text (incl. on-policy rollouts) for the teacher, then run aligners.
@@ -204,9 +203,6 @@ class Retokenize(TeacherInputBuilder):
 
     def _row_sample(self, ids: list[int], plen: int, rt: Any) -> dict[str, Any] | None:
         """Retokenized ``student.*``/``teacher.*`` offsets sample of one row, or None on failure."""
-        from lmkd.data.spans import ids_offsets, prompt_response_offsets
-        from lmkd.data.transforms.tokenize import tokenize_prompt_response
-
         stu, tea = rt.student_tokenizer, rt.teacher_tokenizer
         p_text = stu.decode(ids[:plen], skip_special_tokens=False, clean_up_tokenization_spaces=False)
         bos_len = 0
@@ -288,8 +284,6 @@ class Retokenize(TeacherInputBuilder):
     @staticmethod
     def _merge(batch: Batch, new: Batch, failed: list[int]) -> None:
         """Copy the keys built by ``rt.collator`` into ``batch`` (student padding length of ``batch`` wins)."""
-        from lmkd.core.batch import FIELDS
-
         t_len = batch["student.input_ids"].shape[1]
         device = batch["student.input_ids"].device
         for key in new:

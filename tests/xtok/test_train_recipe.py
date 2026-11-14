@@ -8,12 +8,11 @@ import yaml
 from lmkd.core.config import recipe_from_dict
 from lmkd.pipeline.artifacts import Artifact
 from lmkd.pipeline.stage import StageContext
+from lmkd.pipeline.stages.train import TrainRecipe
 from lmkd.train.builder import build_runtime
 
 
 def test_train_recipe_fingerprint_attach(base_recipe, tmp_path, monkeypatch):
-    from lmkd.pipeline.stages.train import TrainRecipe
-
     output = tmp_path / "child"
     recipe = tmp_path / "child.yaml"
     base_recipe["train"]["output_dir"] = str(output)

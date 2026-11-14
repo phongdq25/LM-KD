@@ -8,20 +8,28 @@ Implements:
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Literal
 
 import torch
 
-from lmkd.core.registry import EVALUATORS, GRADERS, SOURCES, TRANSFORMS
+from lmkd.core.registry import CRITERIONS, EVALUATORS, GRADERS, SOURCES, TRANSFORMS
+from lmkd.data.dataset import PreparedDataset
+from lmkd.data.transforms.base import run_transforms
 from lmkd.eval.base import Evaluator
 from lmkd.eval.generation import generate_for_records
 from lmkd.eval.graders import rouge_metrics
 from lmkd.eval.metrics import mean, score_generations
-from lmkd.losses.aggregator import Norms
+from lmkd.losses.aggregator import Norms, WeightedOutput
+from lmkd.losses.base import LossContext
+from lmkd.models.forward import ForwardRunner
+from lmkd.models.modules import ModuleRegistry
 from lmkd.rollout.base import sampling_from_cfg
+from lmkd.train.algorithms import side_inputs
 from lmkd.train.step_strategies import count_supervised
 
 logger = logging.getLogger(__name__)
@@ -40,13 +48,12 @@ class DevLoss(Evaluator):
         use_chat_template: bool | None = None
         chat_template_kwargs: dict | None = None
         system_prompt: str | None = None
+        transforms: list[dict] | None = None
 
     def setup(self, rt: Any) -> None:
+        if hasattr(self, "loader"):
+            return
         super().setup(rt)
-        import copy
-
-        from lmkd.data.dataset import PreparedDataset
-        from lmkd.data.transforms.base import run_transforms
 
         source = SOURCES.build(self.cfg.data)
         try:
@@ -57,21 +64,41 @@ class DevLoss(Evaluator):
         if self.cfg.max_samples is not None:
             records = records[: self.cfg.max_samples]
 
-        transforms_cfg = getattr(rt.config.data, "transforms", [])
+        transforms_cfg = list(self.cfg.transforms or getattr(rt.config.data, "transforms", []) or [])
         if not transforms_cfg and getattr(rt.config, "pipeline", None):
-            for stage in rt.config.pipeline:
-                st_dict = stage if isinstance(stage, dict) else stage.model_dump()
-                if st_dict.get("stage") == "prepare_dataset" and st_dict.get("transforms"):
+            stages = [stage if isinstance(stage, dict) else stage.model_dump() for stage in rt.config.pipeline]
+            for st_dict in stages:
+                if st_dict.get("transforms"):
                     transforms_cfg = st_dict["transforms"]
                     break
+            if not transforms_cfg:
+                for st_dict in stages:
+                    if st_dict.get("stage") in ("sgl_spectral", "palign", "ssft"):
+                        transforms_cfg = [
+                            {"type": "render_cot", "chat_template": st_dict.get("chat_template", True)},
+                            {"type": "tokenize_cot", "verify": False},
+                        ]
+                        break
+        if not transforms_cfg and records and "student.input_ids" not in records[0]:
+            if "chosen" in records[0] and "rejected" in records[0]:
+                transforms_cfg = [{"type": "tokenize_listwise"}]
+            else:
+                transforms_cfg = [{"type": "tokenize_sft"}]
+
+        if "render_cot" not in TRANSFORMS and any(
+            (t.get("type") if isinstance(t, dict) else getattr(t, "type", None)) == "render_cot" for t in transforms_cfg
+        ):
+            import importlib
+
+            importlib.import_module("baselines.longCoT.transforms")
 
         if (
             self.cfg.use_chat_template is not None
             or self.cfg.chat_template_kwargs is not None
             or self.cfg.system_prompt is not None
         ):
-            transforms_cfg = copy.deepcopy(transforms_cfg)
-            for t_item in transforms_cfg:
+            normalized = []
+            for t_item in copy.deepcopy(transforms_cfg):
                 t_dict = t_item if isinstance(t_item, dict) else t_item.model_dump()
                 if t_dict.get("type") in ("tokenize_sft", "tokenize_dpo", "tokenize_prompt"):
                     if self.cfg.use_chat_template is not None:
@@ -80,12 +107,20 @@ class DevLoss(Evaluator):
                         t_dict["chat_template_kwargs"] = self.cfg.chat_template_kwargs
                     if self.cfg.system_prompt is not None:
                         t_dict["system_prompt"] = self.cfg.system_prompt
+                elif t_dict.get("type") == "render_cot" and self.cfg.use_chat_template is not None:
+                    t_dict["chat_template"] = self.cfg.use_chat_template
+                normalized.append(t_dict)
+            transforms_cfg = normalized
 
         transforms = [TRANSFORMS.build(t) for t in transforms_cfg]
         for t in transforms:
             t.setup(rt)
 
         samples = run_transforms(records, transforms, rt.data_ctx) if transforms else records
+        world_size = getattr(rt.engine, "world_size", 1)
+        if world_size > 1 and not getattr(rt.engine, "is_partitioned", False):
+            rank = getattr(rt.engine, "rank", 0)
+            samples = samples[rank::world_size]
         self.dataset = PreparedDataset(samples, transforms, rt.data_ctx)
         is_cuda = getattr(getattr(rt.engine, "device", None), "type", None) == "cuda"
         collate_fn = getattr(rt.producer, "_flatten", rt.collator)
@@ -102,7 +137,8 @@ class DevLoss(Evaluator):
             self.setup(rt)
 
         prefix = self.cfg.name or getattr(self, "alias", None) or self.name_prefix
-        if len(self.loader) == 0:
+        world_size = getattr(rt.engine, "world_size", 1)
+        if len(self.loader) == 0 and world_size <= 1:
             return {f"{prefix}/loss": 0.0}
 
         model = getattr(rt, "student_module", rt.student_model)
@@ -113,11 +149,72 @@ class DevLoss(Evaluator):
         tot_loss_num, tot_z_tok = 0.0, 0.0
         term_nums: dict[str, float] = {}
 
+        autocast_ctx = rt.engine.autocast() if hasattr(rt.engine, "autocast") else nullcontext()
         try:
-            with torch.no_grad():
+            with torch.no_grad(), autocast_ctx:
                 for batch in self.loader:
                     micro = batch.to(device)
-                    outs = rt.algorithm.loss(micro, rt)
+                    if hasattr(rt.algorithm, "augment") and (
+                        not hasattr(rt.algorithm, "estimator") or "rollout.reward" in micro
+                    ):
+                        micro = rt.algorithm.augment(micro, rt)
+                    elif hasattr(rt, "teacher_input"):
+                        micro = rt.teacher_input.build(micro, rt)
+                    criteria = getattr(rt, "criteria", [])
+                    loss_weights = getattr(rt, "loss_weights", {})
+                    missing = [
+                        t.alias
+                        for t in criteria
+                        if loss_weights.get(t.alias, 0.0) != 0.0
+                        and not set(getattr(t.criterion, "requires", ())).issubset(micro.keys())
+                    ]
+                    if not missing:
+                        outs = rt.algorithm.loss(micro, rt)
+                    else:
+                        if not getattr(self, "_warned_missing_reqs", False):
+                            logger.warning(
+                                "dev_loss data lacks pipeline-cached keys for criteria %s; "
+                                "evaluating remaining/fallback supervised loss",
+                                missing,
+                            )
+                            self._warned_missing_reqs = True
+                        saved_weights = dict(loss_weights)
+                        try:
+                            for alias in missing:
+                                rt.loss_weights[alias] = 0.0
+                            has_active = any(w != 0.0 for w in rt.loss_weights.values()) or (
+                                getattr(rt, "loss_fn", None) is not None
+                            )
+                            if has_active:
+                                outs = rt.algorithm.loss(micro, rt)
+                            else:
+                                fallback_name = (
+                                    "chosen_nll" if ("group.size" in micro and "group.index" in micro) else "nll"
+                                )
+                                if fallback_name == "chosen_nll" and "chosen_nll" not in CRITERIONS:
+                                    fallback_name = "nll"
+                                crit = CRITERIONS.build(fallback_name)
+                                views = ForwardRunner.run(
+                                    rt.student_model,
+                                    rt.student_adapter,
+                                    side_inputs(micro, "student"),
+                                    crit.features().student,
+                                    grad=False,
+                                    module=getattr(rt, "student_module", rt.student_model),
+                                )
+                                rt_modules = getattr(rt, "modules", None)
+                                ctx = LossContext(
+                                    batch=micro,
+                                    student=views[0],
+                                    student_views=views,
+                                    teacher=None,
+                                    modules=ModuleRegistry() if rt_modules is None else rt_modules,
+                                    state=rt.state,
+                                    rt=rt,
+                                )
+                                outs = [WeightedOutput("nll", 1.0, crit(ctx))]
+                        finally:
+                            rt.loss_weights.update(saved_weights)
                     z_tok, z_seq = count_supervised(micro)
                     if z_tok == 0:
                         continue
@@ -127,13 +224,16 @@ class DevLoss(Evaluator):
                     for k, v in mets.items():
                         term_nums[k] = term_nums.get(k, 0.0) + float(v) * z_tok
 
-            keys = sorted(term_nums.keys())
-            packed_vals = [tot_loss_num, tot_z_tok] + [term_nums[k] for k in keys]
+            if world_size > 1 and hasattr(rt.engine, "all_gather_object"):
+                gathered_keys = rt.engine.all_gather_object(list(term_nums.keys()))
+                keys = sorted({k for ks in gathered_keys for k in ks})
+            else:
+                keys = sorted(term_nums.keys())
+            packed_vals = [tot_loss_num, tot_z_tok] + [term_nums.get(k, 0.0) for k in keys]
             reduced_tensor = rt.engine.all_reduce_sum(torch.tensor(packed_vals, device=device, dtype=torch.float64))
             reduced_vals = [float(x) for x in reduced_tensor.tolist()]
             tot_loss_num, tot_z_tok = reduced_vals[0], reduced_vals[1]
 
-            prefix = self.cfg.name or getattr(self, "alias", None) or self.name_prefix
             results = {f"{prefix}/loss": tot_loss_num / tot_z_tok if tot_z_tok else 0.0}
             for i, k in enumerate(keys):
                 results[f"{prefix}/{k}"] = reduced_vals[2 + i] / tot_z_tok if tot_z_tok else 0.0
@@ -463,16 +563,15 @@ class LMEval(Evaluator):
                 if tokenizer is not None:
                     tokenizer.save_pretrained(temp_ckpt)
                 ckpt_path = str(temp_ckpt)
-        elif self.cfg.backend == "auto":
+        elif self.cfg.backend == "auto" and ckpt_path and torch.cuda.is_available() and device.startswith("cuda"):
             # auto uses vllm if checkpoint is available on disk and cuda is active
-            if ckpt_path and torch.cuda.is_available() and device.startswith("cuda"):
-                try:
-                    from lmkd.compat import vllm_api
+            try:
+                from lmkd.compat import vllm_api
 
-                    vllm_api.import_vllm()
-                    use_vllm = True
-                except (ImportError, RuntimeError):
-                    use_vllm = False
+                vllm_api.import_vllm()
+                use_vllm = True
+            except (ImportError, RuntimeError):
+                use_vllm = False
 
         if use_vllm and ckpt_path:
             from lm_eval.models.vllm_causallms import VLLM

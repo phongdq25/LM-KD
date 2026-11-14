@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
@@ -93,10 +95,19 @@ class VocabMap:
     space_mask_t: torch.Tensor | None = None
 
     def save(self, path: Path | str) -> None:
-        """``torch.save`` of every field."""
+        """``torch.save`` of every field atomically."""
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({f.name: getattr(self, f.name) for f in fields(self)}, p)
+        payload = {f.name: getattr(self, f.name) for f in fields(self)}
+        fd, tmp_name = tempfile.mkstemp(dir=p.parent, prefix=f".{p.name}.", suffix=".tmp")
+        os.close(fd)
+        tmp = Path(tmp_name)
+        try:
+            torch.save(payload, tmp)
+            os.replace(tmp, p)
+        finally:
+            if tmp.exists():
+                tmp.unlink()
 
     @classmethod
     def load(cls, path: Path | str) -> VocabMap:

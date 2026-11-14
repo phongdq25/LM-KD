@@ -11,7 +11,10 @@ from typing import ClassVar
 
 import torch
 import torch.nn.functional as F
+from safetensors.torch import save_file
+from transformers import AutoModel, AutoTokenizer
 
+from lmkd.compat import hf_api
 from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import STAGES
 from lmkd.pipeline.io import load_samples_dir
@@ -45,8 +48,6 @@ class EmbedTeacher(Stage):
         text_field: str = "text"
 
     def run(self, ctx: StageContext) -> dict:
-        from safetensors.torch import save_file
-
         samples = load_samples_dir(ctx.inputs["data"].path) if "data" in ctx.inputs else []
         ids, texts = self._ids_and_texts(samples)
         device = self._device(ctx)
@@ -87,10 +88,6 @@ class EmbedTeacher(Stage):
         return ("cuda" if torch.cuda.is_available() else "cpu") if device == "auto" else str(device)
 
     def _load_encoder(self, device: str):
-        from transformers import AutoModel, AutoTokenizer
-
-        from lmkd.compat import hf_api
-
         tokenizer = AutoTokenizer.from_pretrained(
             self.cfg.model, **({"padding_side": "left"} if self.cfg.pooling == "last" else {})
         )

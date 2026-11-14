@@ -14,6 +14,7 @@ from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import STAGES
 from lmkd.pipeline.artifacts import Artifact
 from lmkd.pipeline.stage import Stage, StageContext
+from lmkd.train.trainer import train
 
 
 @STAGES.register("train_recipe")
@@ -43,8 +44,6 @@ class TrainRecipe(Stage):
                 command += ["--set", override]
             subprocess.run(command, check=True)
         else:
-            from lmkd.train.trainer import train
-
             train(cfg)
         output_dir = Path(cfg.train.output_dir).resolve()
         checkpoint = output_dir / "checkpoint-final"

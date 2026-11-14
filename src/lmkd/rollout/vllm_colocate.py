@@ -13,6 +13,7 @@ from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import ROLLOUT
 from lmkd.rollout.base import Rollout, RolloutEngine, SamplingSpec, ScoreSpec, eos_ids
 from lmkd.rollout.weight_sync import iter_student_weights, save_lora_adapter
+from lmkd.train.optimizer_offload import get_or_create_offloader
 
 
 def make_llm(
@@ -108,8 +109,6 @@ class VLLMColocate(RolloutEngine):
         self._tok = tok
         self._offloader = None
         if cfg.offload_optimizer:
-            from lmkd.train.optimizer_offload import get_or_create_offloader
-
             self._offloader = get_or_create_offloader(rt)
         self._lora = spec.lora is not None and cfg.lora_mode == "hot_load"
         self._merge = spec.lora is not None and cfg.lora_mode == "merge"
@@ -207,7 +206,6 @@ class VLLMColocate(RolloutEngine):
 
     # ------------------------------------------------------------------ generation
     def generate(self, prompts, spec: SamplingSpec, lora=None) -> list[list[Rollout]]:
-
         self._maybe_sync()
         if self.cfg.enable_sleep_mode:
             self._wake(["kv_cache"])

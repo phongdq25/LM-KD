@@ -2,9 +2,11 @@ from types import SimpleNamespace
 
 import pytest
 import torch
+from tests.parity.test_emo_parity import DummyTok
 from transformers import BertConfig, BertModel
 
 from baselines.embedding.distillcse import DistillCSE
+from baselines.embedding.emo import EMO
 from baselines.embedding.jasper import Jasper
 from baselines.embedding.mol import MoL
 from baselines.embedding.talas import LASD
@@ -15,6 +17,7 @@ from lmkd.models.adapters import HFAutoAdapter
 from lmkd.models.forward import ForwardRunner
 from lmkd.models.modules import ModuleRegistry
 from lmkd.plugins import load_builtin_plugins
+from lmkd.teachers.signals import TeacherOutput
 
 load_builtin_plugins()
 
@@ -80,7 +83,6 @@ def test_infonce_teacher_contrastive():
     assert len(views) == 1
 
     teacher_embeddings = torch.randn(B, D_t)
-    from lmkd.teachers.signals import TeacherOutput
 
     ctx = LossContext(
         batch=Batch({"student.input_ids": inputs["input_ids"], "student.attention_mask": inputs["attention_mask"]}),
@@ -188,7 +190,6 @@ def test_distillcse_unit():
     assert len(views) == 2
 
     teacher_embeddings = torch.randn(B, D_t)
-    from lmkd.teachers.signals import TeacherOutput
 
     batch = Batch({"student.input_ids": inputs["input_ids"], "student.attention_mask": inputs["attention_mask"]})
     ctx = LossContext(
@@ -252,7 +253,6 @@ def test_jasper_unit():
 
     views = ForwardRunner.run(student, adapter, inputs, req.student, grad=True)
     teacher_embeddings = torch.randn(B, D_t)
-    from lmkd.teachers.signals import TeacherOutput
 
     batch = Batch({"student.input_ids": inputs["input_ids"], "student.attention_mask": inputs["attention_mask"]})
     ctx = LossContext(
@@ -296,10 +296,6 @@ def test_emo_unit():
         "input_ids": torch.randint(1, 50, (B, T_s)),
         "attention_mask": torch.ones(B, T_s, dtype=torch.long),
     }
-
-    from tests.parity.test_emo_parity import DummyTok
-
-    from baselines.embedding.emo import EMO
 
     criterion = EMO(
         EMO.Config(
@@ -345,8 +341,6 @@ def test_emo_unit():
             "teacher.attention_mask": t_mask,
         }
     )
-
-    from lmkd.teachers.signals import TeacherOutput
 
     ctx = LossContext(
         batch=batch,
@@ -442,8 +436,6 @@ def test_mol_unit():
             "teacher.attention_mask": t_mask,
         }
     )
-
-    from lmkd.teachers.signals import TeacherOutput
 
     ctx = LossContext(
         batch=batch,

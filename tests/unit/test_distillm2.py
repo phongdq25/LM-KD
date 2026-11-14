@@ -247,7 +247,7 @@ def test_distillm2_producer_lifecycle():
     assert state.epoch == pytest.approx(1.0)
 
     # Step 3: Epoch 0 ends -> epoch boundary reached -> regenerates for Epoch 1
-    b3 = prod.next(state)
+    prod.next(state)
     assert rollout.call_count == 2
     assert rollout.stale_count == 2
     assert prod.epoch == 1

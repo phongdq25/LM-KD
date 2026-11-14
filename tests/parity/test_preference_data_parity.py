@@ -13,7 +13,11 @@ from lmkd.losses.functional.sequence import sequence_logps
 from lmkd.models.logits_view import LogitsView
 from lmkd.pipeline.stages.preference import compress_target_logits, sparse_advantages
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "Awesome-Human-AI-Alignment-main" / "src"))
+_ALIGNMENT_SRC = Path(__file__).resolve().parents[3] / "Awesome-Human-AI-Alignment-main" / "src"
+if not _ALIGNMENT_SRC.exists():
+    pytest.skip(f"Original source repository not found at {_ALIGNMENT_SRC}", allow_module_level=True)
+
+sys.path.insert(0, str(_ALIGNMENT_SRC))
 from human_alignment.config import PreferenceDistillationConfig  # noqa: E402
 from human_alignment.integrations.preference_distillation import _tokenize_response  # noqa: E402
 from human_alignment.mechanisms.training.distillation_losses import (  # noqa: E402

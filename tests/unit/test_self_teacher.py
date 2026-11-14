@@ -9,16 +9,19 @@ import pytest
 import torch
 import torch.nn as nn
 from tests.parity._ref.opsd_ref import opsd_tinker_loss_ref
+from transformers import AutoModelForCausalLM
 
-from baselines.self_distill.opsd import TinkerRKL
+from baselines.self_distill.opsd import ReasonFirst, TinkerRKL
 from lmkd.core.batch import Batch
 from lmkd.core.config import recipe_from_dict
 from lmkd.core.state import TrainState
 from lmkd.data.labels import make_labels
 from lmkd.losses.base import LossContext
+from lmkd.models.forward import ForwardRunner, SideRequest, side_inputs
 from lmkd.models.logits_view import LogitsView
+from lmkd.rollout.base import Rollout
 from lmkd.teachers.input_builders import PrivilegedPrompt
-from lmkd.teachers.providers import HFFrozenTeacher
+from lmkd.teachers.providers import HFFrozenTeacher, SelfTeacher
 from lmkd.teachers.signals import TeacherOutput, TeacherSignalSpec
 from lmkd.teachers.weight_policies import EMA, LoraDisabled, PeriodicSync
 from lmkd.train.builder import build_runtime
@@ -138,8 +141,6 @@ def test_self_live_equals_student(base_recipe, tiny_models):
     }
     b = rt.collator([sample])
 
-    from lmkd.models.forward import ForwardRunner, SideRequest, side_inputs
-
     s_outs = ForwardRunner.run(
         rt.student_model, rt.student_adapter, side_inputs(b, "student"), SideRequest(logits="view"), grad=False
     )
@@ -154,7 +155,6 @@ def test_lora_disabled_equals_base(base_recipe, tiny_models):
     """Inside lora_disabled context, logits match base model; outside context, LoRA is restored."""
     pytest.importorskip("peft")
     from peft import LoraConfig, get_peft_model
-    from transformers import AutoModelForCausalLM
 
     base_path = tiny_models["student"]
     base_model = AutoModelForCausalLM.from_pretrained(base_path)
@@ -201,10 +201,6 @@ def test_self_teacher_and_trust_region_with_lora_on_lm_head(base_recipe, tiny_mo
     """When LoRA targets lm_head, SelfTeacher and TrustRegion evaluate base head weights correctly."""
     pytest.importorskip("peft")
     from peft import LoraConfig, get_peft_model
-    from transformers import AutoModelForCausalLM
-
-    from lmkd.models.forward import SideRequest
-    from lmkd.teachers.providers import SelfTeacher
 
     base_path = tiny_models["student"]
     student_model = AutoModelForCausalLM.from_pretrained(base_path)
@@ -401,8 +397,6 @@ def test_tinker_matches_original():
 
 def test_reason_first_build(base_recipe, tiny_models):
     """ReasonFirst generates teacher reasoning via rollout and constructs privileged context."""
-    from baselines.self_distill.opsd import ReasonFirst
-    from lmkd.rollout.base import Rollout
 
     rt = build_runtime(recipe_from_dict(base_recipe))
     tok = rt.student_tokenizer

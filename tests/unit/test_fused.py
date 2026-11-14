@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import warnings
+from unittest.mock import MagicMock
 
 import pytest
 import torch
 
+from lmkd.core.batch import Batch
 from lmkd.core.config import recipe_from_dict
+from lmkd.losses.base import LossContext
 from lmkd.losses.sft import WeightedNLL
 from lmkd.train.builder import build_runtime
 
@@ -62,10 +65,6 @@ def test_fused_on_raises_with_weights(base_recipe):
         "student.attention_mask": torch.tensor([[1, 1, 1]]),
         "seq.token_weights": torch.tensor([[1.0, 0.5, 0.5]]),
     }
-    from unittest.mock import MagicMock
-
-    from lmkd.core.batch import Batch
-    from lmkd.losses.base import LossContext
 
     ctx = LossContext(
         batch=Batch(batch),

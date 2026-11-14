@@ -67,29 +67,63 @@ def _reg_name(node: ast.AST, regs: dict[str, str]) -> str | None:
     return None
 
 
-def _literal(args: list[ast.expr], idx: int) -> str | None:
+_LOSS_DECORATORS = frozenset({"loss", "register_loss", "compute_loss"})
+
+
+def _literal(
+    args: list[ast.expr], idx: int, keywords: list[ast.keyword] | None = None, kw_name: str = "name"
+) -> str | None:
     if len(args) > idx:
         arg = args[idx]
         if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
             return arg.value
+    if keywords:
+        for kw in keywords:
+            if kw.arg == kw_name and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                return kw.value.value
     return None
 
 
+def _call_reg_and_name(call: ast.Call, regs: dict[str, str]) -> tuple[str | None, str | None, bool]:
+    """Return (registry_name, explicit_plugin_name, allows_default_name) for a Call AST node."""
+    fn = call.func
+    if isinstance(fn, ast.Attribute) and fn.attr == "register":
+        return _reg_name(fn.value, regs), _literal(call.args, 0, call.keywords), len(call.args) == 0
+    if isinstance(fn, ast.Name) and fn.id == "stub" and call.args:
+        return _reg_name(call.args[0], regs), _literal(call.args, 1, call.keywords), False
+    if isinstance(fn, ast.Name) and fn.id in _LOSS_DECORATORS:
+        return "criterions", _literal(call.args, 0, call.keywords), len(call.args) == 0
+    if isinstance(fn, ast.Attribute) and fn.attr in _LOSS_DECORATORS:
+        return "criterions", _literal(call.args, 0, call.keywords), len(call.args) == 0
+    return None, None, False
+
+
 def scan_source(source: str, regs: dict[str, str]) -> list[tuple[str, str]]:
-    """``[(registry, name)]`` registered with a literal name in ``source``."""
+    """``[(registry, name)]`` registered in ``source``."""
     found: list[tuple[str, str]] = []
-    for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, ast.Call):
-            continue
-        fn = node.func
-        if isinstance(fn, ast.Attribute) and fn.attr == "register":
-            reg, name = _reg_name(fn.value, regs), _literal(node.args, 0)
-        elif isinstance(fn, ast.Name) and fn.id == "stub" and node.args:
-            reg, name = _reg_name(node.args[0], regs), _literal(node.args, 1)
-        else:
-            continue
-        if reg is not None and name is not None:
-            found.append((reg, name))
+    tree = ast.parse(source)
+    decorated_calls: set[int] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            for dec in node.decorator_list:
+                if isinstance(dec, ast.Call):
+                    decorated_calls.add(id(dec))
+                    reg, name, allow_default = _call_reg_and_name(dec, regs)
+                    if reg is not None:
+                        resolved = name if name is not None else (node.name.lower() if allow_default else None)
+                        if resolved:
+                            found.append((reg, resolved))
+                elif isinstance(dec, ast.Attribute) and dec.attr == "register":
+                    reg = _reg_name(dec.value, regs)
+                    if reg is not None:
+                        found.append((reg, node.name.lower()))
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and id(node) not in decorated_calls:
+            reg, name, _ = _call_reg_and_name(node, regs)
+            if reg is not None and name is not None:
+                found.append((reg, name))
     return found
 
 

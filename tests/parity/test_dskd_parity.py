@@ -221,11 +221,9 @@ def test_dskdv2_analytic_s2t():
 
     W_S = stu_head.weight.detach().transpose(0, 1)  # [D_s, V_s]
     W_T = tea_head.weight.detach().transpose(0, 1)  # [D_t, V_t]
-    part_S = W_S[:, overlap_s]
     part_T = W_T[:, overlap_t]
 
     part_T_pinv = torch.linalg.pinv(part_T.float())
-    s2t_analytic_ref = (part_S.float() @ part_T_pinv).transpose(0, 1)  # or stu_lm_head @ pinv
 
     # Distiller ref calculation
     stu_lm_head_sub = W_S[:, overlap_s]

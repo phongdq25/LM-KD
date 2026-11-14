@@ -9,6 +9,7 @@ training runtime is built (they hold ``_UNSET`` until then); ``| None`` fields a
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +20,9 @@ import torch.nn as nn
 
 from lmkd.core.config import RecipeConfig
 from lmkd.core.state import TrainState
+from lmkd.losses.hf_compat import ModelView, run_side
+from lmkd.train.checkpointing import save_checkpoint
+from lmkd.train.optimizer_offload import get_or_create_offloader
 
 if TYPE_CHECKING:  # type-only imports: avoid import cycles at runtime
     from transformers import PreTrainedTokenizerBase
@@ -31,7 +35,6 @@ if TYPE_CHECKING:  # type-only imports: avoid import cycles at runtime
     from lmkd.eval.base import Evaluator
     from lmkd.losses.aggregator import LossAggregator
     from lmkd.losses.base import Criterion, LossOutput
-    from lmkd.losses.hf_compat import ModelView
     from lmkd.models.adapters import HFAutoAdapter
     from lmkd.models.modules import ModuleRegistry
     from lmkd.pipeline.artifacts import ArtifactStore
@@ -170,14 +173,10 @@ class Runtime:
         """Student forward on ``student.*`` of ``batch`` -> :class:`lmkd.losses.hf_compat.ModelView`
         (HF convention: ``logits[:, t]`` predicts ``input_ids[:, t+1]``). Goes through the engine
         wrapper, so it is safe under DeepSpeed; use it instead of ``rt.student_model(...)``."""
-        from lmkd.losses.hf_compat import run_side
-
         return run_side(self, batch, "student", hidden=hidden, logits=logits, grad=grad)
 
     def teacher_forward(self, batch: Batch, *, hidden: bool = False, logits: bool = True) -> ModelView:
         """Teacher forward (no grad) on ``teacher.*`` if present, else ``student.*``."""
-        from lmkd.losses.hf_compat import run_side
-
         return run_side(self, batch, "teacher", hidden=hidden, logits=logits, grad=False)
 
     def evaluate(self, phase: str = "always") -> dict[str, float]:
@@ -209,16 +208,10 @@ class Runtime:
 
     def save(self, tag: str) -> Path:
         """Full checkpoint ``<output_dir>/checkpoint-<tag>`` (collective: call on every rank)."""
-        from lmkd.train.checkpointing import save_checkpoint
-
         return save_checkpoint(self, tag)
 
     def offload_optimizer(self) -> Any:
         """Context manager to offload optimizer state to pinned CPU memory during rollout/eval."""
-        import contextlib
-
-        from lmkd.train.optimizer_offload import get_or_create_offloader
-
         offloader = get_or_create_offloader(self)
         if offloader is None:
             return contextlib.nullcontext()

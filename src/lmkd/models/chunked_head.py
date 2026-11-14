@@ -12,9 +12,13 @@ from torch.autograd.function import once_differentiable
 
 def _head(h, weight, bias, temperature, vocab_limit):
     with torch.autocast(device_type=h.device.type, enabled=False):
-        if h.device.type == "cuda" and torch.cuda.is_available():
-            torch.backends.cuda.matmul.allow_tf32 = True
-        x = h.float() @ weight.float().T
+        if h.device.type == "cuda" and h.dtype in (torch.float16, torch.bfloat16):
+            w = weight if weight.dtype == h.dtype else weight.to(h.dtype)
+            x = (h @ w.T).float()
+        else:
+            if h.device.type == "cuda" and torch.cuda.is_available():
+                torch.backends.cuda.matmul.allow_tf32 = True
+            x = h.float() @ weight.float().T
         if bias is not None:
             x = x + bias.float()
         if vocab_limit is not None:

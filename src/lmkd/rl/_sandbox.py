@@ -4,6 +4,9 @@ import ctypes
 import errno
 import os
 import platform
+import resource
+import runpy
+import sys
 
 
 class _Ruleset(ctypes.Structure):
@@ -82,10 +85,6 @@ def restrict_child(tmp):
 
 
 def _main():
-    import resource
-    import runpy
-    import sys
-
     tmp, target, memory_mb = sys.argv[1:]
     memory = int(memory_mb) * 1024**2
     resource.setrlimit(resource.RLIMIT_AS, (memory, memory))

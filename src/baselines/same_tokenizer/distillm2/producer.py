@@ -89,6 +89,8 @@ class DistiLLM2Producer(BatchProducer):
                 for k in ("student.input_ids", "student.labels", "student.attention_mask"):
                     if k in c and len(c[k]) > max_len:
                         c[k] = c[k][:max_len]
+                if "student.prompt_len" in c:
+                    c["student.prompt_len"] = min(int(c["student.prompt_len"]), max_len)
             c["group.size"] = 2
             c["group.index"] = 0
             self.chosen_samples.append(c)
@@ -114,10 +116,14 @@ class DistiLLM2Producer(BatchProducer):
 
         max_len = getattr(getattr(self.rt.config, "data", None), "max_length", None)
         for r in rejected:
+            # Drop rollout-only logprobs so offline chosen and online rejected share the same collator keys.
+            r.pop("rollout.rollout_logp", None)
             if max_len is not None:
                 for k in ("student.input_ids", "student.labels", "student.attention_mask"):
                     if k in r and len(r[k]) > max_len:
                         r[k] = r[k][:max_len]
+                if "student.prompt_len" in r:
+                    r["student.prompt_len"] = min(int(r["student.prompt_len"]), max_len)
             r["group.size"] = 2
             r["group.index"] = 1
 

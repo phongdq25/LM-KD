@@ -1,5 +1,6 @@
 """T25: rollout grouping, teacher re-prompt selection and PPO step accounting."""
 
+import copy
 from types import SimpleNamespace
 
 import pytest
@@ -8,6 +9,7 @@ from tests.e2e_tiny.test_rl_tiny import ToyReward, rl_recipe
 
 import lmkd
 from lmkd.core.registry import REWARDS
+from lmkd.models.logits_view import LogitsView
 from lmkd.rollout.base import Rollout
 from lmkd.teachers.signals import TeacherSignalSpec
 
@@ -104,7 +106,6 @@ def test_trust_region_lerp(base_recipe, mix):
             p.add_(0.02 * torch.randn_like(p))
         rt.student_model.eval()
         args = {"input_ids": batch["student.input_ids"], "attention_mask": batch["student.attention_mask"]}
-        from lmkd.models.logits_view import LogitsView
 
         expected = LogitsView(logits=torch.lerp(ref(**args).logits, rt.student_model(**args).logits, mix))
         expected_logp = expected.target_logp(batch["student.labels"])
@@ -170,7 +171,6 @@ def test_trust_region_lora_hidden_path(base_recipe):
             with rt.student_adapter.adapters_disabled(rt.student_model):
                 ref = rt.student_model(**args).logits
             live = rt.student_model(**args).logits
-            from lmkd.models.logits_view import LogitsView
 
             expected = LogitsView(logits=torch.lerp(ref, live, 0.5)).target_logp(batch["student.labels"])
         actual = rt.teacher.signals(batch, TeacherSignalSpec(kind="sampled_logp"), None, None)
@@ -181,10 +181,6 @@ def test_trust_region_lora_hidden_path(base_recipe):
 
 
 def test_ema_teacher_keeps_ema_head_for_lazy_signals(base_recipe):
-    import copy
-
-    from lmkd.models.logits_view import LogitsView
-
     base_recipe["teacher"] = {"provider": {"type": "self", "weight_policy": "ema"}, "input": "same"}
     rt = lmkd.build(base_recipe)
     reference = copy.deepcopy(rt.student_model).eval()

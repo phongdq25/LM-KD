@@ -4,9 +4,11 @@ from types import SimpleNamespace
 import pytest
 import torch
 from safetensors.torch import save_file
+from tests.conftest import _make_gpt2, _make_tokenizer
 
 from lmkd.core.batch import Batch
 from lmkd.pipeline.artifacts import Artifact
+from lmkd.pipeline.io import save_samples
 from lmkd.pipeline.stage import StageContext
 from lmkd.pipeline.stages.embedding import EmbedTeacher
 from lmkd.teachers.providers import EmbeddingStoreTeacher
@@ -65,10 +67,6 @@ def test_by_position_requires_flag(tmp_path):
 
 
 def test_embed_teacher_stage(tmp_path):
-    from tests.conftest import _make_gpt2, _make_tokenizer
-
-    from lmkd.pipeline.io import save_samples
-
     # Create tiny model and tokenizer
     model_dir = tmp_path / "teacher_model"
     tok = _make_tokenizer(model_dir)

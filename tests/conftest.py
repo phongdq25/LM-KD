@@ -4,15 +4,22 @@ temp dir, plus a toy jsonl dataset. Everything runs on CPU in a few seconds, no 
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+from pathlib import Path
+
+os.environ.setdefault("TRITON_CACHE_DIR", str(Path(tempfile.gettempdir()) / "triton_cache"))
 
 import pytest
 import torch
+from tokenizers import Tokenizer, models, pre_tokenizers
+from transformers import GPT2Config, GPT2LMHeadModel, PreTrainedTokenizerFast
+
+from lmkd.plugins import load_plugins
 
 
 @pytest.fixture(scope="session", autouse=True)
 def _auto_load_plugins():
-    from lmkd.plugins import load_plugins
-
     load_plugins([])
 
 
@@ -20,9 +27,6 @@ WORDS = [f"w{i}" for i in range(60)] + ["Q:", "A:", "+", "="]
 
 
 def _make_tokenizer(path, eos_is_pad: bool = False):
-    from tokenizers import Tokenizer, models, pre_tokenizers
-    from transformers import PreTrainedTokenizerFast
-
     vocab = {"<pad>": 0, "<eos>": 1, "<unk>": 2}
     for w in WORDS:
         vocab[w] = len(vocab)
@@ -36,8 +40,6 @@ def _make_tokenizer(path, eos_is_pad: bool = False):
 
 
 def _make_gpt2(path, n_embd: int, n_layer: int, vocab: int, seed: int):
-    from transformers import GPT2Config, GPT2LMHeadModel
-
     torch.manual_seed(seed)
     cfg = GPT2Config(
         vocab_size=vocab, n_positions=128, n_embd=n_embd, n_layer=n_layer, n_head=2, bos_token_id=1, eos_token_id=1

@@ -1,6 +1,7 @@
 """Behavioral regressions for the new-method APIs (T32)."""
 
 import copy
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -8,13 +9,21 @@ import torch
 
 import lmkd
 from lmkd import Inputs, ScalarLoss, SeqLoss, TokenLoss
+from lmkd.api import _parse_quick_loss_terms
+from lmkd.cli import main
 from lmkd.core.batch import Batch
+from lmkd.core.config import load_recipe
+from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import CRITERIONS, RegistryError
 from lmkd.core.state import TrainState
-from lmkd.losses.base import LossContext
+from lmkd.core.validate import check_recipe
+from lmkd.losses.base import Criterion, LossContext, ModelPairInfo, PrepareContext
 from lmkd.models.adapters import HFAutoAdapter
 from lmkd.models.forward import SideOutput
 from lmkd.models.logits_view import LogitsView
+from lmkd.models.modules import ModuleRegistry
+from lmkd.plugins import load_plugins
+from lmkd.scaffold import create_scaffold
 from lmkd.teachers.signals import TeacherOutput
 
 
@@ -158,8 +167,6 @@ def test_duplicate_loss_names_preserve_unrelated_registration():
 
 
 def test_quick_uses_registered_callable_name_and_rejects_unknown_inputs():
-    from lmkd.api import _parse_quick_loss_terms
-
     @lmkd.loss("t32_callable_alias")
     def a_different_python_name(s):
         return TokenLoss(s.logits.mean(-1))
@@ -171,8 +178,6 @@ def test_quick_uses_registered_callable_name_and_rejects_unknown_inputs():
 
 @pytest.mark.parametrize("bad", ["detached", "nan"])
 def test_cli_try_rejects_detached_and_nonfinite_objectives(bad, capsys):
-    from lmkd.cli import main
-
     @lmkd.loss(f"t32_try_{bad}", chunked=False)
     def objective(s):
         values = torch.ones_like(s.mask) if bad == "detached" else s.logits.mean(-1) * float("nan")
@@ -183,17 +188,11 @@ def test_cli_try_rejects_detached_and_nonfinite_objectives(bad, capsys):
 
 
 def test_criterion_scaffold_runs_a_real_gradient_test(tmp_path):
-    from lmkd.core.config import load_recipe
-    from lmkd.core.validate import check_recipe
-    from lmkd.scaffold import create_scaffold
-
     assert create_scaffold("criterion", "t32_scaffold", root=tmp_path) == 0
     cfg = load_recipe(tmp_path / "recipes/experimental/t32_scaffold.yaml")
     assert check_recipe(cfg).ok
-    from lmkd.plugins import load_plugins
 
     load_plugins([str(tmp_path / "tests/unit/test_t32_scaffold.py")])
-    import sys
 
     generated = next(
         m
@@ -204,10 +203,6 @@ def test_criterion_scaffold_runs_a_real_gradient_test(tmp_path):
 
 
 def test_criterion_aux_module_ergonomics_and_checkpoint_loading(tmp_path):
-    from lmkd.core.plugin import BaseConfig
-    from lmkd.losses.base import Criterion, ModelPairInfo, PrepareContext
-    from lmkd.models.modules import ModuleRegistry
-
     class DummyCrit(Criterion):
         class Config(BaseConfig):
             projector_ckpt: str = ""

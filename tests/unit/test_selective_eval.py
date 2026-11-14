@@ -2,6 +2,9 @@
 
 import json
 
+import yaml
+
+from lmkd.cli import main
 from lmkd.core.config import recipe_from_dict
 from lmkd.core.registry import EVALUATORS
 from lmkd.eval.base import Evaluator
@@ -45,7 +48,7 @@ def test_selective_eval_flow(base_recipe, tmp_path):
         {"type": "_test_heavy_test_eval"},
     ]
 
-    trainer = Trainer.from_config(recipe_from_dict(base_recipe)).fit()
+    Trainer.from_config(recipe_from_dict(base_recipe)).fit()
 
     # Verify best checkpoint discovery
     best = find_best_checkpoint(out)
@@ -69,10 +72,6 @@ def test_selective_eval_flow(base_recipe, tmp_path):
 
 
 def test_cli_multi_config_and_ckpt_resolution(base_recipe, tmp_path, monkeypatch, capsys):
-    import yaml
-
-    from lmkd.cli import main
-
     out = tmp_path / "run"
     base_recipe["train"].update(output_dir=str(out), max_steps=2, log_every=1)
     base_recipe["callbacks"] = [

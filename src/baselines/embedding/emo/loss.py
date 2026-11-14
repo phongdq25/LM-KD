@@ -586,5 +586,3 @@ class EMO(Criterion):
 )
 class EMOKD(EMO):
     """Alias for EMO criterion."""
-
-    pass

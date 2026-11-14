@@ -53,7 +53,7 @@ optim:
   lr: 2.0e-05
   weight_decay: 0.01
   optimizers:
-    adamw:
+    default:
       type: adamw
   schedulers:
   - type: cosine

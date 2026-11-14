@@ -5,7 +5,8 @@ import torch
 import torch.nn as nn
 
 from lmkd.core.registry import PROJECTORS
-from lmkd.models.modules import DSLProjector
+from lmkd.losses.base import Criterion
+from lmkd.models.modules import DSLProjector, ModuleRegistry
 
 
 def test_parse_structures():
@@ -61,9 +62,6 @@ def test_dsl_projector_forward():
 
 
 def test_module_registry_smart_lookup_and_debugging():
-    from lmkd.losses.base import Criterion
-    from lmkd.models.modules import ModuleRegistry
-
     modules = ModuleRegistry()
     lin = nn.Linear(8, 8)
     modules.add("projector", lin, owner="emo")

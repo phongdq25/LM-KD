@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -138,8 +139,6 @@ class GradMag(LossAggregator):
         self._grad_norms = grad_norms.detach()
 
     def combine(self, outputs: list[WeightedOutput], norms: Norms) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        import logging
-
         if self._weights is None or self._grad_norms is None:
             if not torch.is_grad_enabled():
                 tasks = self.task_losses(outputs, norms)

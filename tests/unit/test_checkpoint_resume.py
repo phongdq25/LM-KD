@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -9,7 +10,10 @@ import pytest
 import torch
 
 from lmkd.core.config import recipe_from_dict
+from lmkd.core.plugin import BaseConfig
+from lmkd.core.registry import CALLBACKS
 from lmkd.train.builder import build_runtime
+from lmkd.train.callbacks import Callback
 from lmkd.train.checkpointing import find_latest_checkpoint, load_checkpoint, save_checkpoint
 from lmkd.train.trainer import Trainer
 
@@ -27,8 +31,6 @@ def _losses(out: Path) -> dict[int, float]:
 
 
 def test_resume_deterministic(base_recipe, tmp_path):
-    import copy
-
     a = Trainer.from_config(_recipe(copy.deepcopy(base_recipe), tmp_path / "A", max_steps=6, every=3)).fit()
     Trainer.from_config(_recipe(copy.deepcopy(base_recipe), tmp_path / "B", max_steps=3, every=3)).fit()
     assert (tmp_path / "B" / "checkpoint-3" / "COMPLETE").exists()
@@ -80,10 +82,6 @@ def test_keep_last_larger_than_number_of_checkpoints(base_recipe, tmp_path):
 
 
 def test_keep_best(base_recipe, tmp_path):
-    from lmkd.core.plugin import BaseConfig
-    from lmkd.core.registry import CALLBACKS
-    from lmkd.train.callbacks import Callback
-
     if "_test_fake_eval" not in CALLBACKS:
 
         @CALLBACKS.register("_test_fake_eval")

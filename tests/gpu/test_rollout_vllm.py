@@ -10,9 +10,12 @@ import traceback
 
 import pytest
 import torch
+from transformers import Qwen2Config, Qwen2ForCausalLM
 
 pytest.importorskip("vllm")
 pytestmark = [pytest.mark.gpu, pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA unavailable")]
+
+from tests.conftest import _make_tokenizer  # noqa: E402
 
 from lmkd.core.config import recipe_from_dict  # noqa: E402
 from lmkd.core.registry import TEACHERS  # noqa: E402
@@ -94,7 +97,7 @@ def test_vllm_generate_and_logp(cuda_recipe):
 def _body_weight_sync(recipe):
     rt = build_runtime(recipe_from_dict(recipe))
     greedy = SamplingSpec(n=1, temperature=0.0, max_new_tokens=4, return_logprobs=False)
-    first = rt.rollout.generate([[5, 6, 7]], greedy)[0][0]
+    rt.rollout.generate([[5, 6, 7]], greedy)[0][0]
     with torch.no_grad():  # GPT-2 ties lm_head <-> wte: logits all 0
         rt.student_model.lm_head.weight.zero_()
     rt.state.step += 1  # auto stale detection
@@ -190,9 +193,6 @@ def _body_lora_hot_load(recipe):
 
 def test_vllm_lora_hot_load_matches_trainer(cuda_recipe, tiny_models, tmp_path):
     pytest.importorskip("peft")
-    from transformers import Qwen2Config, Qwen2ForCausalLM
-
-    from conftest import _make_tokenizer
 
     path = tmp_path / "qwen"
     tok = _make_tokenizer(path)

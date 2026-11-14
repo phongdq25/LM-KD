@@ -5,6 +5,7 @@ Each record gets a stable ``meta.id`` (from the record's ``id`` field or its row
 
 from __future__ import annotations
 
+import csv
 import json
 from collections.abc import Iterator
 from pathlib import Path
@@ -67,8 +68,6 @@ class CsvSource(Source):
         delimiter: str = ","
 
     def records(self) -> Iterator[dict]:
-        import csv
-
         with open(self.cfg.path, encoding="utf-8", newline="") as f:
             rows = list(csv.DictReader(f, delimiter=self.cfg.delimiter))
         for i, r in enumerate(rows):

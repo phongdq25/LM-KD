@@ -12,7 +12,7 @@ from typing import Any, ClassVar, cast
 
 import torch
 from jinja2.exceptions import TemplateError
-from transformers import AutoModelForSequenceClassification
+from transformers import AutoModel, AutoModelForSequenceClassification, AutoTokenizer
 
 from lmkd.core.config import ModelSpec
 from lmkd.core.plugin import BaseConfig
@@ -372,6 +372,8 @@ def pairwise_scores(model: Any, tokenizer: Any, prompt: str, responses: list[str
 
 def pad_mcq_template(tokenizer: Any) -> Template:
     """Render the PAD MCQ template."""
+    if not getattr(tokenizer, "chat_template", None):
+        return Template(f"{_PAD_MCQ_SYSTEM}\n\n{_PAD_MCQ_USER}\n")
     try:
         text = tokenizer.apply_chat_template(
             [{"role": "system", "content": _PAD_MCQ_SYSTEM}, {"role": "user", "content": _PAD_MCQ_USER}],
@@ -771,8 +773,6 @@ class SPPOCalibrate(Stage):
                 encoder = None
                 enc_tok = None
                 if self.cfg.sim_model:
-                    from transformers import AutoModel, AutoTokenizer
-
                     device = "cuda" if torch.cuda.is_available() else "cpu"
                     enc_tok = AutoTokenizer.from_pretrained(self.cfg.sim_model)
                     encoder = AutoModel.from_pretrained(self.cfg.sim_model).to(device).eval()

@@ -22,11 +22,14 @@ from __future__ import annotations
 import json
 import random
 import shutil
+import warnings
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
+from peft import set_peft_model_state_dict
+from safetensors.torch import load_file
 
 COMPLETE = "COMPLETE"
 
@@ -146,8 +149,6 @@ def _save_teacher(rt: Any, path: Path) -> None:
 
 
 def _load_teacher(rt: Any, path: Path) -> None:
-    import warnings
-
     teacher = getattr(rt, "teacher", None)
     if teacher is None:
         return
@@ -166,8 +167,6 @@ def _load_teacher(rt: Any, path: Path) -> None:
 
 # ----------------------------------------------------------------------------- load
 def _read_student_state(d: Path) -> dict[str, torch.Tensor]:
-    from safetensors.torch import load_file
-
     sd: dict[str, torch.Tensor] = {}
     index = next(iter(sorted(d.glob("*.safetensors.index.json"))), None) or next(
         iter(sorted(d.glob("*.bin.index.json"))), None
@@ -191,8 +190,6 @@ def _load_student(rt: Any, d: Path) -> None:
         with rt.engine.gathered(list(model.parameters()), modifier_rank=0), torch.no_grad():
             if not rt.engine.is_main and rt.engine.is_partitioned:
                 return
-            from peft import set_peft_model_state_dict
-
             set_peft_model_state_dict(model, _read_student_state(d))
             return
     res = rt.engine.load_model_state_dict(model, _read_student_state(d))

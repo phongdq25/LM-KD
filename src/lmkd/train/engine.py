@@ -21,6 +21,9 @@ Checkpoint API (``train/checkpointing.py``): ``save_model``, ``iter_full_state_d
 from __future__ import annotations
 
 import contextlib
+import copy
+import json
+import os
 from collections.abc import Iterator
 from datetime import timedelta
 from pathlib import Path
@@ -28,11 +31,27 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
+from accelerate import PartialState, cpu_offload
+from pydantic import field_validator
 
-from lmkd.compat import ds_api
+from lmkd.compat import ds_api, fsdp_api
 from lmkd.core.plugin import BaseConfig, Plugin
 from lmkd.core.registry import ENGINES
+
+
+def _place_frozen_model(model: nn.Module, placement: str, device: torch.device) -> nn.Module:
+    if getattr(model, "is_loaded_in_8bit", False) or getattr(model, "is_loaded_in_4bit", False):
+        return model
+    if placement == "cpu":
+        return model.to("cpu")
+    if placement == "cpu_offload":
+        cpu_offload(model, execution_device=device, offload_buffers=True)
+        return model
+    if placement.startswith("device:"):
+        return model.to(placement.split(":", 1)[1])
+    return model.to(device)
 
 
 class Engine(Plugin):
@@ -48,6 +67,8 @@ class Engine(Plugin):
     def __init__(self, cfg=None):
         super().__init__(cfg)
         self.scaler: Any = None  # torch.amp.GradScaler when fp16
+        self._master_param_map: dict[torch.nn.Parameter, torch.nn.Parameter] = {}
+        self._master_optimizers: list[MasterWeightOptimizer] = []
 
     @property
     def device(self) -> torch.device:
@@ -92,6 +113,10 @@ class Engine(Plugin):
             return True
         before = self.scaler.get_scale()
         for opt in optimizers.values():
+            if isinstance(opt, MasterWeightOptimizer) and not opt._unscaled_snapshots:
+                opt.sync_grads_to_master()
+                self.scaler.unscale_(opt)
+                opt.sync_grads_from_master()
             self.scaler.step(opt)
         self.scaler.update()
         return self.scaler.get_scale() >= before
@@ -106,7 +131,28 @@ class Engine(Plugin):
         return contextlib.nullcontext()
 
     def clip_grad_norm(self, params, max_norm: float) -> torch.Tensor:
-        return torch.nn.utils.clip_grad_norm_(params, max_norm)
+        params_list = list(params)
+        if not self._master_param_map:
+            return torch.nn.utils.clip_grad_norm_(params_list, max_norm)
+        clip_targets = []
+        synced_pairs = []
+        for p in params_list:
+            mp = self._master_param_map.get(p)
+            if mp is not None:
+                if mp.grad is None and p.grad is not None:
+                    mp.grad = p.grad.detach().float()
+                clip_targets.append(mp)
+                synced_pairs.append((p, mp))
+            else:
+                clip_targets.append(p)
+        norm = torch.nn.utils.clip_grad_norm_(clip_targets, max_norm)
+        for p, mp in synced_pairs:
+            if mp.grad is not None and p.grad is not None:
+                p.grad.copy_(mp.grad.to(p.dtype))
+        for opt in self._master_optimizers:
+            if opt._unscaled_snapshots:
+                opt.refresh_snapshots()
+        return norm
 
     def get_global_grad_norm(self) -> float | None:
         return None
@@ -179,6 +225,7 @@ class MasterWeightOptimizer(torch.optim.Optimizer):
     def __init__(self, optimizer: torch.optim.Optimizer):
         self.optimizer = optimizer
         self.param_map: dict[torch.nn.Parameter, torch.nn.Parameter] = {}
+        self._unscaled_snapshots: dict[torch.nn.Parameter, torch.Tensor] = {}
 
         master_groups = []
         for g in optimizer.param_groups:
@@ -207,22 +254,42 @@ class MasterWeightOptimizer(torch.optim.Optimizer):
                 master_p.grad = None
 
     def sync_grads_from_master(self) -> None:
+        self._unscaled_snapshots.clear()
         for p, master_p in self.param_map.items():
             if master_p.grad is not None and p.grad is not None:
                 p.grad.copy_(master_p.grad.to(p.dtype))
+                self._unscaled_snapshots[p] = p.grad.detach().clone()
+
+    def refresh_snapshots(self) -> None:
+        for p in list(self._unscaled_snapshots):
+            if p.grad is not None:
+                self._unscaled_snapshots[p] = p.grad.detach().clone()
 
     def sync_master_from_model(self) -> None:
         for p, master_p in self.param_map.items():
             master_p.data.copy_(p.data.float())
 
     def step(self, closure=None):
-        self.sync_grads_to_master()
+        if self._unscaled_snapshots:
+            for p, master_p in self.param_map.items():
+                if p.grad is None:
+                    master_p.grad = None
+                elif (
+                    master_p.grad is None
+                    or p not in self._unscaled_snapshots
+                    or not torch.equal(p.grad, self._unscaled_snapshots[p])
+                ):
+                    master_p.grad = p.grad.detach().float()
+            self._unscaled_snapshots.clear()
+        else:
+            self.sync_grads_to_master()
         loss = self.optimizer.step(closure=closure)
         for p, master_p in self.param_map.items():
             p.data.copy_(master_p.data)
         return loss
 
     def zero_grad(self, set_to_none: bool = True) -> None:
+        self._unscaled_snapshots.clear()
         for p, master_p in self.param_map.items():
             if set_to_none:
                 p.grad = None
@@ -254,6 +321,13 @@ class MasterWeightOptimizer(torch.optim.Optimizer):
         return getattr(self.optimizer, name)
 
 
+def _normalize_mixed_precision(v: Any) -> Any:
+    """Normalize YAML 1.1 ``no`` (parsed as ``False``) and ``fp32``/``none`` aliases to ``"no"``."""
+    if v is False or v is None or v in ("none", "fp32"):
+        return "no"
+    return v
+
+
 @ENGINES.register("local")
 class LocalEngine(Engine):
     """CPU or single-GPU engine with optional bf16/fp16 autocast and GradScaler."""
@@ -262,14 +336,13 @@ class LocalEngine(Engine):
         device: str = "auto"  # auto | cpu | cuda | cuda:N | mps
         mixed_precision: str = "bf16"  # no | bf16 | fp16 (fp16 => GradScaler on CUDA)
         master_weights: bool = True  # maintain FP32 master weights for BF16/FP16 parameters
+        _val_mp = field_validator("mixed_precision", mode="before")(_normalize_mixed_precision)
 
     def __init__(self, cfg: LocalEngine.Config):
         super().__init__(cfg)
         d = cfg.device
         if d == "auto":
             if torch.cuda.is_available():
-                import os
-
                 local_rank = os.environ.get("LOCAL_RANK")
                 d = f"cuda:{local_rank}" if local_rank is not None else "cuda"
             else:
@@ -289,6 +362,8 @@ class LocalEngine(Engine):
         return self._device
 
     def prepare(self, student_module: nn.Module, modules: nn.Module, optimizers: dict[str, Any]) -> tuple:
+        self._master_param_map = {}
+        self._master_optimizers = []
         if self.cfg.master_weights:
             wrapped = {}
             for name, opt in optimizers.items():
@@ -300,6 +375,10 @@ class LocalEngine(Engine):
                 else:
                     wrapped[name] = opt
             optimizers = wrapped
+        for opt in optimizers.values():
+            if isinstance(opt, MasterWeightOptimizer):
+                self._master_param_map.update(opt.param_map)
+                self._master_optimizers.append(opt)
         return student_module, modules, optimizers
 
     def place_frozen(self, model: nn.Module, placement: str) -> nn.Module:
@@ -309,18 +388,7 @@ class LocalEngine(Engine):
         device placement because modules are transferred on every forward pass, and
         should only be used when the teacher model does not fit in VRAM.
         """
-        if getattr(model, "is_loaded_in_8bit", False) or getattr(model, "is_loaded_in_4bit", False):
-            return model
-        if placement == "cpu":
-            return model.to("cpu")
-        if placement == "cpu_offload":
-            from accelerate import cpu_offload
-
-            cpu_offload(model, execution_device=self._device, offload_buffers=True)
-            return model
-        if placement.startswith("device:"):
-            return model.to(placement.split(":", 1)[1])
-        return model.to(self._device)
+        return _place_frozen_model(model, placement, self._device)
 
     def autocast(self):
         if self._device.type == "cuda" and self.cfg.mixed_precision in ("bf16", "fp16"):
@@ -455,9 +523,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def load_ds_config(spec: str | dict | None) -> dict:
     """DeepSpeed config from a dict, a JSON path (cwd-relative, then repo-relative) or None (= {})."""
-    import copy
-    import json
-
     if spec is None:
         return {}
     if isinstance(spec, dict):
@@ -493,15 +558,13 @@ class AccelerateEngine(Engine):
         batch_size: int | None = None  # = train.batch_size (global per optimizer step)
         micro_batch_size: int | None = None  # = train.micro_batch_size (per device)
         gradient_clipping: float | None = None  # = grad.clip_norm (None/0 = no clipping)
+        _val_mp = field_validator("mixed_precision", mode="before")(_normalize_mixed_precision)
 
     def __init__(self, cfg: AccelerateEngine.Config):
         super().__init__(cfg)
         if cfg.mixed_precision not in ("no", "bf16", "fp16"):
             raise ValueError(f"mixed_precision must be no|bf16|fp16, got {cfg.mixed_precision!r}")
         # Initializes the process group (NCCL on GPU, gloo on CPU) from torchrun env vars.
-        import torch.distributed as dist
-        from accelerate import PartialState
-
         st = PartialState(timeout=timedelta(minutes=cfg.timeout_minutes))
         if dist.is_available() and dist.is_initialized():  # PartialState under-reports CPU/gloo runs
             self.rank, self.world_size = dist.get_rank(), dist.get_world_size()
@@ -556,18 +619,7 @@ class AccelerateEngine(Engine):
         if placement == "shard":
             raise NotImplementedError("teacher placement 'shard' (ZeRO-3 inference) is not supported")
         self._frozen.append(model)
-        if getattr(model, "is_loaded_in_8bit", False) or getattr(model, "is_loaded_in_4bit", False):
-            return model
-        if placement == "cpu":
-            return model.to("cpu")
-        if placement == "cpu_offload":
-            from accelerate import cpu_offload
-
-            cpu_offload(model, execution_device=self._device, offload_buffers=True)
-            return model
-        if placement.startswith("device:"):
-            return model.to(placement.split(":", 1)[1])
-        return model.to(self._device)
+        return _place_frozen_model(model, placement, self._device)
 
     def wrap_trainable(self, module: nn.Module) -> nn.Module:
         return module  # DeepSpeed wraps the whole bundle in prepare()
@@ -678,22 +730,16 @@ class AccelerateEngine(Engine):
 
     # ---------------------------------------------------------------- collectives
     def all_reduce_sum(self, x: torch.Tensor) -> torch.Tensor:
-        import torch.distributed as dist
-
         y = x.clone()
         dist.all_reduce(y)
         return y
 
     def all_gather_object(self, obj: Any) -> list:
-        import torch.distributed as dist
-
         out: list = [None] * self.world_size
         dist.all_gather_object(out, obj)
         return out
 
     def barrier(self) -> None:
-        import torch.distributed as dist
-
         dist.barrier()
 
     # ---------------------------------------------------------------- checkpoint
@@ -759,13 +805,10 @@ class FSDP2Engine(Engine):
         gradient_clipping: float | None = None
         reshard_after_forward: bool = False
         layer_cls: list[str] | str | None = None
+        _val_mp = field_validator("mixed_precision", mode="before")(_normalize_mixed_precision)
 
     def __init__(self, cfg: FSDP2Engine.Config | None = None):
         super().__init__(cfg or self.Config())
-        import os
-
-        import torch.distributed as dist
-
         if not dist.is_initialized():
             os.environ.setdefault("RANK", "0")
             os.environ.setdefault("WORLD_SIZE", "1")
@@ -811,8 +854,6 @@ class FSDP2Engine(Engine):
         return module.to(self.device)
 
     def prepare(self, student_module: nn.Module, modules: nn.Module, optimizers: dict[str, Any]) -> tuple:
-        from lmkd.compat import fsdp_api
-
         if self.cfg.reshard_after_forward and not self.cfg.layer_cls:
             raise ValueError("FSDP2 lazy logits/aux need reshard_after_forward=false")
         if any(opt.state for opt in optimizers.values()):
@@ -836,18 +877,7 @@ class FSDP2Engine(Engine):
 
     def place_frozen(self, model: nn.Module, placement: str) -> nn.Module:
         model.eval()
-        if getattr(model, "is_loaded_in_8bit", False) or getattr(model, "is_loaded_in_4bit", False):
-            return model
-        if placement == "cpu":
-            return model.to("cpu")
-        if placement == "cpu_offload":
-            from accelerate import cpu_offload
-
-            cpu_offload(model, execution_device=self._device, offload_buffers=True)
-            return model
-        if placement.startswith("device:"):
-            return model.to(placement.split(":", 1)[1])
-        return model.to(self.device)
+        return _place_frozen_model(model, placement, self.device)
 
     def autocast(self):
         if self._device.type == "cuda" and self.cfg.mixed_precision in ("bf16", "fp16"):
@@ -858,8 +888,6 @@ class FSDP2Engine(Engine):
     def all_reduce_sum(self, x: torch.Tensor) -> torch.Tensor:
         if self.world_size == 1:
             return x
-        import torch.distributed as dist
-
         t = x.clone()
         dist.all_reduce(t, op=dist.ReduceOp.SUM)
         return t
@@ -878,19 +906,13 @@ class FSDP2Engine(Engine):
             module.set_requires_gradient_sync(True)
 
     def clip_grad_norm(self, params, max_norm: float) -> torch.Tensor:
-        from lmkd.compat.fsdp_api import full_tensor
-
-        return full_tensor(torch.nn.utils.clip_grad_norm_(params, max_norm))
+        return fsdp_api.full_tensor(torch.nn.utils.clip_grad_norm_(params, max_norm))
 
     def iter_full_state_dict(self, model: nn.Module) -> Iterator[tuple[str, torch.Tensor]]:
-        from lmkd.compat.fsdp_api import full_model_state
-
-        yield from full_model_state(model).items()
+        yield from fsdp_api.full_model_state(model).items()
 
     def load_model_state_dict(self, model: nn.Module, state: dict) -> Any:
-        from lmkd.compat.fsdp_api import load_model_state
-
-        return load_model_state(model, state)
+        return fsdp_api.load_model_state(model, state)
 
     def save_model(self, model: nn.Module, path: Path, tokenizer: Any) -> None:
         state = dict(self.iter_full_state_dict(model))
@@ -900,14 +922,10 @@ class FSDP2Engine(Engine):
                 tokenizer.save_pretrained(path)
 
     def optimizer_state_dict(self, opt: Any) -> dict:
-        from lmkd.compat.fsdp_api import full_optimizer_state
-
-        return full_optimizer_state(self._bundle, opt)
+        return fsdp_api.full_optimizer_state(self._bundle, opt)
 
     def load_optimizer_state_dict(self, opt: Any, sd: dict) -> None:
-        from lmkd.compat.fsdp_api import load_optimizer_state
-
-        load_optimizer_state(self._bundle, opt, sd)
+        fsdp_api.load_optimizer_state(self._bundle, opt, sd)
 
     def save_optimizers(self, optimizers: dict[str, Any], path: Path) -> None:
         for name, opt in optimizers.items():
@@ -919,14 +937,10 @@ class FSDP2Engine(Engine):
     def all_gather_object(self, obj: Any) -> list:
         if self.world_size == 1:
             return [obj]
-        import torch.distributed as dist
-
         out: list = [None] * self.world_size
         dist.all_gather_object(out, obj)
         return out
 
     def barrier(self) -> None:
         if self.world_size > 1:
-            import torch.distributed as dist
-
             dist.barrier()

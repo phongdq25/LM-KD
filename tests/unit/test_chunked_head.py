@@ -4,6 +4,7 @@ from torch import nn
 
 from lmkd.losses.functional.divergences import forward_kl, reverse_kl
 from lmkd.models import logits_view as lv
+from lmkd.models.chunked_head import ChunkedHeadFunction
 
 
 @pytest.mark.parametrize("kind", ["logp", "fkl", "rkl"])
@@ -36,8 +37,6 @@ def test_efficient_matches_naive(kind, bias, temperature, limit, monkeypatch):
 
 
 def test_skips_masked_chunks():
-    from lmkd.models.chunked_head import ChunkedHeadFunction
-
     h = torch.randn(2, 12, 8, requires_grad=True)
     w = torch.randn(31, 8, requires_grad=True)
     mask = torch.zeros(2, 12)
@@ -53,8 +52,6 @@ def test_skips_masked_chunks():
 
 
 def test_no_grad_path_unchanged(monkeypatch):
-    from lmkd.models.chunked_head import ChunkedHeadFunction
-
     def fail(*args):
         raise AssertionError("efficient path under no_grad")
 
@@ -115,8 +112,6 @@ def test_no_logits_saved_for_backward():
 
 
 def test_sharded_head_fallback(monkeypatch, caplog):
-    from lmkd.models.chunked_head import ChunkedHeadFunction
-
     head = nn.Linear(8, 31)
     head.weight.ds_id = 1
     lv._WARNED_HEADS.clear()
@@ -135,8 +130,6 @@ def test_sharded_head_fallback(monkeypatch, caplog):
 @pytest.mark.parametrize("state", ["weight_ds_id", "bias_ds_id", "empty_weight", "wrapped_head"])
 def test_fallback_preserves_module_forward_and_gradients(kind, state, monkeypatch, caplog):
     """Simulate parameter availability; this does not initialize a DeepSpeed engine."""
-    from lmkd.models.chunked_head import ChunkedHeadFunction
-
     torch.manual_seed(42)
     h = torch.randn(2, 7, 8, requires_grad=True)
     linear = nn.Linear(8, 31)

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 import torch
+from tests.parity._ref.various_divergence_ref import VariousDivergenceRef
 
 from lmkd.losses.cross_tokenizer._common import (
     get_vocab_map,
@@ -34,7 +37,6 @@ def test_target_logits_full_is_view_full():
 @pytest.mark.parametrize("name", NAMES)
 @pytest.mark.parametrize("use_tea_temp", [False, True])
 def test_vd_divergence_parity(name, use_tea_temp):
-    from tests.parity._ref.various_divergence_ref import VariousDivergenceRef
 
     torch.manual_seed(0)
     logits = torch.randn(3, 6, 11)
@@ -99,7 +101,6 @@ def test_pairs_to_index():
 
 
 def test_get_vocab_map_error_and_ok():
-    from types import SimpleNamespace
 
     ctx = SimpleNamespace(rt=SimpleNamespace(data_ctx=SimpleNamespace(vocab_map=None)))
     with pytest.raises(RuntimeError, match="load_vocab_map"):

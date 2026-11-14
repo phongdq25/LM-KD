@@ -24,7 +24,7 @@ from lmkd.core.registry import (
     TRANSFORMS,
 )
 from lmkd.core.validate import check_recipe
-from lmkd.plugins import load_plugins
+from lmkd.plugins import _USER_LOADED, _import_file, load_plugins
 from lmkd.scaffold.init_baseline import parse_init_target
 from lmkd.scaffold.probe import probe_gradient
 
@@ -139,8 +139,6 @@ def test_cli_init_custom_override_loss_and_loop(tmp_path: Path, monkeypatch, tin
     loss_file.write_text(custom_loss_code, encoding="utf-8")
 
     # Force reload of modified loss.py
-    from lmkd.plugins import _USER_LOADED
-
     _USER_LOADED.clear()
     load_plugins([str(loss_file)])
 
@@ -152,8 +150,6 @@ def test_cli_init_custom_override_loss_and_loop(tmp_path: Path, monkeypatch, tin
     # Run via the generated train.py main() entrypoint
     sys.path.insert(0, str(pkg_dir))
     try:
-        from lmkd.plugins import _import_file
-
         _USER_LOADED.clear()
         _import_file(pkg_dir / "train.py")
         train_mod = next(m for k, m in sys.modules.items() if k.startswith("lmkd_user_train_"))

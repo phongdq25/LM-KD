@@ -20,6 +20,7 @@ from lmkd.data.context import DataContext
 from lmkd.models.loading import load_tokenizer
 from lmkd.pipeline.artifacts import Artifact, ArtifactStore
 from lmkd.pipeline.stage import Stage, StageContext
+from lmkd.plugins import load_plugins
 from lmkd.train.runtime import Runtime
 
 RESERVED = ("stage", "type", "name", "inputs", "force", "dataset")
@@ -99,8 +100,6 @@ def plan(cfg: RecipeConfig) -> list[PlannedNode]:
 
 def build_runtime_for_pipeline(cfg: RecipeConfig) -> Runtime:
     """Build lightweight runtime for pipeline runner (seeds, engine, tokenizers, no model weights)."""
-    from lmkd.plugins import load_plugins
-
     load_plugins(cfg.imports)
     random.seed(cfg.train.seed)
     np.random.seed(cfg.train.seed)
@@ -242,8 +241,15 @@ def run_pipeline(
         elif dry_run:
             print(f"{n.name} {art.key} {'cached' if art.done else 'TO RUN'}")
         elif not art.done or forced:
-            run = _run_shard if shard[1] > 1 else _run_whole
-            run(rt, n, art, store, in_arts, input_keys, shard, forced)
+            if shard[1] > 1:
+                _run_shard(rt, n, art, store, in_arts, input_keys, shard, forced)
+            else:
+                engine = getattr(rt, "engine", None)
+                distributed = engine is not None and getattr(engine, "world_size", 1) > 1
+                if not distributed or getattr(engine, "is_main", True):
+                    _run_whole(rt, n, art, store, in_arts, input_keys, shard, forced)
+                if engine is not None and distributed and hasattr(engine, "barrier"):
+                    engine.barrier()
 
         if art.done and not dry_run:
             n.stage.attach(art, rt)

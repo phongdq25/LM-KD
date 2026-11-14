@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -99,7 +100,12 @@ class LogitsView:
             out = self._logits[:, pos_start:pos_end]
         else:
             assert self._head is not None and self._hidden is not None
-            out = self._head(self._hidden[:, pos_start:pos_end])
+            h_slice = self._hidden[:, pos_start:pos_end]
+            if isinstance(self._head, nn.Linear) and h_slice.dtype != self._head.weight.dtype:
+                bias = self._head.bias.to(h_slice.dtype) if self._head.bias is not None else None
+                out = F.linear(h_slice, self._head.weight.to(h_slice.dtype), bias)
+            else:
+                out = self._head(h_slice)
         out = out.float()
         if self.vocab_limit is not None:
             out = out[..., : self.vocab_limit]
@@ -126,14 +132,22 @@ class LogitsView:
         if (
             not LOGITS_VIEW_EFFICIENT
             or self._hidden is None
+            or self._head is None
             or not torch.is_grad_enabled()
             or not self._hidden.requires_grad
             or getattr(self._head, "_lmkd_fsdp_managed", False)
         ):
             return False
-        ok = type(self._head) is nn.Linear and all(
-            p is None or (p.numel() > 0 and not ds_api.is_partitioned_param(p))
-            for p in (self._head.weight, self._head.bias)
+        head_obj: Any = self._head
+        head_mod: Any = head_obj.head[0] if type(head_obj).__name__ == "DetachedLinear" else head_obj
+        if getattr(head_mod, "_lmkd_fsdp_managed", False):
+            return False
+        ok = (
+            type(self._head) is nn.Linear
+            or (type(self._head).__name__ == "DetachedLinear" and hasattr(head_mod, "weight"))
+        ) and all(
+            p is None or (isinstance(p, torch.Tensor) and p.numel() > 0 and not ds_api.is_partitioned_param(p))
+            for p in (head_mod.weight, getattr(head_mod, "bias", None))
         )
         if not ok and type(self._head) not in _WARNED_HEADS:
             logging.getLogger(__name__).warning(
@@ -146,7 +160,7 @@ class LogitsView:
 
     def _apply_chunked(self, chunk_fn, chunk_size, skip_mask=None):
         h, head = self._hidden, self._head
-        assert h is not None and head is not None and isinstance(head, nn.Linear)
+        assert h is not None and head is not None and hasattr(head, "weight")
         h_t = torch.cat([h.new_zeros(h[:, :1].shape), h[:, :-1]], 1)
 
         def aligned(x, s, e):
@@ -156,7 +170,7 @@ class LogitsView:
             return chunk_fn(x, s, e)
 
         return ChunkedHeadFunction.apply(
-            h_t, head.weight, head.bias, aligned, chunk_size, self.temperature, self.vocab_limit, skip_mask
+            h_t, head.weight, getattr(head, "bias", None), aligned, chunk_size, self.temperature, self.vocab_limit, skip_mask
         )
 
     # ------------------------------------------------------------------ public API

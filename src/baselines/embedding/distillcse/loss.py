@@ -133,6 +133,4 @@ class DistillCSE(Criterion):
 class DistillCSEKD(DistillCSE):
     """Alias for DistillCSE criterion."""
 
-    pass
-
 

@@ -24,6 +24,7 @@ from baselines.embedding.emo import (
 )
 from lmkd.core.batch import Batch
 from lmkd.losses.base import ModelPairInfo
+from lmkd.models.modules import ModuleRegistry
 from lmkd.teachers.signals import TeacherOutput
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -246,12 +247,10 @@ def test_emo_criterion():
     criterion.teacher_tokenizer = DummyTok()
     criterion.student_tokenizer = DummyTok()
 
-    from lmkd.models.modules import ModuleRegistry
-
     info = ModelPairInfo(student_hidden=d_s, student_layers=2, student_vocab=100, teacher_hidden=d_t)
     modules = ModuleRegistry()
     criterion.build_modules(info, modules)
-    proj = modules.get("emo__projector")
+    modules.get("emo__projector")
 
     t_last = torch.randn(B, L_t, d_t)
     s_last = torch.randn(B, L_s, d_s)

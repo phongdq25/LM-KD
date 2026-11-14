@@ -5,6 +5,7 @@ import copy
 import pytest
 import torch
 
+from baselines.cross_tokenizer.mcw_kd import OTHidden, OTLogits
 from lmkd.core.config import recipe_from_dict
 from lmkd.losses.base import ModelPairInfo, PrepareContext
 from lmkd.models.modules import ModuleRegistry
@@ -77,16 +78,12 @@ def test_qp_update(base_recipe, xtok_models, tmp_path):
 
 
 def test_missing_qp_dependency(monkeypatch):
-    from baselines.cross_tokenizer.mcw_kd import OTLogits
-
     monkeypatch.setitem(__import__("sys").modules, "cvxpy", None)
     with pytest.raises(ImportError, match=r"pip install -e"):
         OTLogits().prepare(PrepareContext(rt=None))
 
 
 def test_shared_module_once():
-    from baselines.cross_tokenizer.mcw_kd import OTHidden, OTLogits
-
     mods = ModuleRegistry()
     info = ModelPairInfo(6, 1, 9, 8, 1, 11)
     a, b = OTLogits(), OTHidden()

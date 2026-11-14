@@ -6,6 +6,7 @@ This section provides practical, step-by-step guides for extending the LM-KD fra
 
 ## Guide Index
 
+- **[Newcomer Method Integration Guide](newcomer-integration-guide.md):** Start here! 3-level decision tree (`@lmkd.loss`, `Criterion`, `lmkd init`), golden rules, reusable building blocks, and copy-paste recipes.
 - **[Adding a New Baseline](adding-a-baseline.md):** The end-to-end checklist for adding a published baseline paper to the toolkit.
 - **[Developing a Custom Loss](developing-custom-loss.md):** Complete walkthrough of authoring, validating, and testing a new distillation loss from scratch.
 - **[Adding Models & API Teachers](adding-models.md):** How to integrate new open-weights models and proprietary black-box API teachers (Gemini, Claude, GPT-4).

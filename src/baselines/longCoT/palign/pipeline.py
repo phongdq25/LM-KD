@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar
@@ -368,8 +369,6 @@ class VerifyFilter(Stage):
         rows = merge_jsonl(ctx, shard_dirs, "records.jsonl", input_rows(ctx, "records", "data", "prev"))
         dropped = {"no_gold": 0, "wrong": 0}
         for folder in shard_dirs:
-            import json
-
             info = json.loads((folder / "manifest.json").read_text()).get("info", {})
             for key in dropped:
                 dropped[key] += int(info.get("dropped", {}).get(key, 0))

@@ -9,6 +9,7 @@ from baselines.same_tokenizer.fdd.functional import compute_fdd_loss
 from lmkd.core.plugin import BaseConfig
 from lmkd.core.registry import CRITERIONS
 from lmkd.losses.base import Criterion, LossContext, LossOutput, LossTerm
+from lmkd.losses.cross_tokenizer._common import target_hidden
 from lmkd.models.forward import FeatureRequest, SideRequest
 from lmkd.teachers.signals import TeacherSignalSpec
 
@@ -94,9 +95,11 @@ class FDDCriterion(Criterion):
 
         s_head, t_head = self._resolve_heads(ctx)
 
-        s_hiddens = [ctx.student.hidden(l) for l in self.cfg.student_layers]
-        t_hiddens = [ctx.teacher.side.hidden(l) for l in self.cfg.teacher_layers]
-        mask = ctx.supervised_mask()
+        s_hiddens = [target_hidden(ctx.student.hidden(l)) for l in self.cfg.student_layers]
+        t_hiddens = [target_hidden(ctx.teacher.side.hidden(l)) for l in self.cfg.teacher_layers]
+        mask = ctx.supervised_mask().clone()
+        if mask.shape[1] > 0:
+            mask[:, 0] = 0.0
 
         s_model = getattr(ctx.student, "model", None)
         t_model = getattr(ctx.teacher.side, "model", None)

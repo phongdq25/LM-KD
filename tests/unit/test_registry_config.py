@@ -1,8 +1,10 @@
 import pytest
 
+from lmkd import compat
 from lmkd.core.config import apply_overrides, deep_merge, load_recipe, resolve_interpolations
 from lmkd.core.plugin import BaseConfig, Plugin
-from lmkd.core.registry import Registry
+from lmkd.core.plugin_index import lookup
+from lmkd.core.registry import CRITERIONS, Registry
 
 
 def test_registry_build_and_strict():
@@ -43,9 +45,6 @@ def test_merge_overrides_interp(tmp_path):
 
 
 def test_lazy_plugin_resolution():
-    from lmkd.core.plugin_index import lookup
-    from lmkd.core.registry import CRITERIONS
-
     # Static index resolves token_kd to its module
     mod = lookup("criterions", "token_kd")
     assert mod == "lmkd.losses.token_kd"
@@ -57,8 +56,6 @@ def test_lazy_plugin_resolution():
 
 
 def test_compat_probe_has_and_require():
-    from lmkd import compat
-
     assert compat.has("torch")
     assert compat.require("torch") is not None
 

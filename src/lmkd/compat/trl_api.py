@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 
@@ -12,8 +13,6 @@ def get_vllm_client(
     connection_timeout: float = 600.0,
 ) -> Any:
     """Import and instantiate TRL's VLLMClient."""
-    import importlib
-
     client_cls = None
     for mod_name in ("trl.generation.vllm_client", "trl.extras.vllm_client"):
         try:

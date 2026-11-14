@@ -12,10 +12,9 @@ optim:
     weight_decay: 0.01
   - name: default
     match: {}
-    optimizer: adamw
     lr: 2.0e-05
   optimizers:
-    adamw:
+    default:
       type: adamw
   schedulers:
   - type: cosine

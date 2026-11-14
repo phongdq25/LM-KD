@@ -1,27 +1,12 @@
-"""Easy loss APIs (tiers 0 and 1) on top of the Criterion contract (tier 2).
+"""HF-positional compatibility APIs (legacy porting helpers) on top of the Criterion contract.
 
-Tier 0 - ``compute_loss`` (like ``transformers.Trainer.compute_loss``): a function
-``fn(batch, rt, **kwargs) -> Tensor | dict[str, Tensor] | LossOutput`` that may run the models
-itself through ``rt.forward(batch)`` / ``rt.teacher_forward(batch)``. Use it from a recipe::
+Notice: For all new distillation methods, prefer the recommended target-aligned APIs:
+  - **Level 1**: ``@lmkd.loss`` (automatic lazy chunking, target-aligned inputs, no manual shifting)
+  - **Level 2**: subclass :class:`lmkd.Criterion` (auxiliary modules, multi-stage checkpoints, full control)
 
-    imports: [my_loss.py]
-    algorithm: {type: compute_loss, fn: my_kd, kwargs: {temperature: 2.0}}
-
-or from a script: ``rt.train_step(loss_fn=my_kd)``.
-
-Tier 1 - ``register_loss``: a function on HF-style model outputs, registered as a normal
-criterion (composable in ``loss.terms`` with any other criterion, weights, schedules)::
-
-    @register_loss("my_kd", teacher=True)
-    def my_kd(s, t, batch, temperature: float = 2.0):
-        ...   # s.logits / t.logits: [B,T,V] HF convention; batch["student.labels"] target-aligned
-
-Tier 2 - subclass :class:`lmkd.losses.base.Criterion` (FeatureRequest + LogitsView chunked):
-memory-efficient, the form expected for the official baselines.
-
-Returned values with the default reduction ``mean`` are means over the micro-batch; the
-aggregator averages them over micro-batches x ranks, so gradient accumulation is exact for
-per-micro-batch means. Use ``reduction="token_sum"`` (and return a sum) for a token-exact mean.
+The decorators here (``compute_loss`` and ``register_loss``) expose unshifted HF-positional
+``[B,T,V]`` tensors via ``ModelView`` for porting raw ``transformers.Trainer`` scripts verbatim.
+They materialize full ``[B,T,V]`` logits and require manual ``[:, :-1]`` / ``[:, 1:]`` slicing.
 """
 
 from __future__ import annotations
@@ -108,9 +93,16 @@ def as_loss_output(value: Any, reduction: Reduction = "mean", name: str = "loss"
 def _same_origin(registry: Any, name: str, fn: Callable) -> bool:
     """True when ``name`` is already registered from the same function (file imported twice via
     ``imports:`` and a plain import, or a re-run notebook cell): re-registering is then allowed."""
-    if name not in registry:
-        return False
-    old = getattr(registry.get(name), "_lmkd_fn", registry.get(name))
+    items = getattr(registry, "_items", None)
+    if items is not None:
+        if name not in items:
+            return False
+        obj = items[name].obj
+    else:
+        if name not in registry:
+            return False
+        obj = registry.get(name)
+    old = getattr(obj, "_lmkd_fn", obj)
     code_old, code_new = getattr(old, "__code__", None), fn.__code__
     return (
         code_old is not None

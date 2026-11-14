@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import torch
+from transformers import Qwen2Config, Qwen2ForCausalLM
 
 from lmkd.core.config import recipe_from_dict
 from lmkd.data.collator import Collator
@@ -22,7 +23,6 @@ def test_packed_loss_matches_unpacked_flash():
     pytest.importorskip("flash_attn")
     if not torch.cuda.is_available():
         pytest.skip("CUDA required for FlashAttention-2")
-    from transformers import Qwen2Config, Qwen2ForCausalLM
 
     torch.manual_seed(7)
     config = Qwen2Config(

@@ -54,7 +54,8 @@ class LastTokenPooler(Pooler):
             return hidden[:, -1]
         if bool((mask[:, -1] == 1).all()):  # left padding or no padding
             return hidden[:, -1]
-        idx = mask.long().sum(1) - 1
+        pos = torch.arange(mask.shape[1], device=mask.device).unsqueeze(0)
+        idx = torch.where(mask != 0, pos, 0).amax(dim=1)
         return hidden[torch.arange(hidden.shape[0], device=hidden.device), idx]
 
 

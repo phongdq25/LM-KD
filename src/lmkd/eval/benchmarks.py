@@ -29,6 +29,12 @@ def _dataset_path(repo_id: str, local_dir_name: str) -> str:
     return f"{BENCH_DATA_ROOT}/{local_dir_name}" if BENCH_DATA_ROOT else repo_id
 
 
+def _load_hf_dataset(repo_id: str, local_dir_name: str, *args: Any, **kwargs: Any) -> Any:
+    from datasets import load_dataset
+
+    return load_dataset(_dataset_path(repo_id, local_dir_name), *args, **kwargs)
+
+
 def _math_records(rows: Any, question_key: str, answer_key: str) -> list[dict]:
     return [
         {
@@ -45,49 +51,37 @@ def _math_records(rows: Any, question_key: str, answer_key: str) -> list[dict]:
 
 def load_aime24() -> list[dict]:
     """Maxwell-Jia/AIME_2024: plain integer gold in Answer."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("Maxwell-Jia/AIME_2024", "AIME_2024"), split="train")
+    rows = _load_hf_dataset("Maxwell-Jia/AIME_2024", "AIME_2024", split="train")
     return _math_records(rows, "Problem", "Answer")
 
 
 def load_aime25() -> list[dict]:
     """yentinglin/aime_2025."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("yentinglin/aime_2025", "aime_2025"), split="train")
+    rows = _load_hf_dataset("yentinglin/aime_2025", "aime_2025", split="train")
     return _math_records(rows, "problem", "answer")
 
 
 def load_aime26() -> list[dict]:
     """MathArena/aime_2026_I."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("MathArena/aime_2026_I", "aime_2026"), split="train")
+    rows = _load_hf_dataset("MathArena/aime_2026_I", "aime_2026", split="train")
     return _math_records(rows, "problem", "answer")
 
 
 def load_hmmt25() -> list[dict]:
     """MathArena/hmmt_feb_2025."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("MathArena/hmmt_feb_2025", "hmmt_feb_2025"), split="train")
+    rows = _load_hf_dataset("MathArena/hmmt_feb_2025", "hmmt_feb_2025", split="train")
     return _math_records(rows, "problem", "answer")
 
 
 def load_math500() -> list[dict]:
     """HuggingFaceH4/MATH-500 test split."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("HuggingFaceH4/MATH-500", "MATH-500"), split="test")
+    rows = _load_hf_dataset("HuggingFaceH4/MATH-500", "MATH-500", split="test")
     return _math_records(rows, "problem", "answer")
 
 
 def load_olympiadbench() -> list[dict]:
     """English open-ended text-only math competition subset."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("Hothan/OlympiadBench", "OlympiadBench"), "OE_TO_maths_en_COMP", split="train")
+    rows = _load_hf_dataset("Hothan/OlympiadBench", "OlympiadBench", "OE_TO_maths_en_COMP", split="train")
     records = []
     for index, row in enumerate(rows):
         answers = row.get("final_answer") or []
@@ -109,33 +103,25 @@ def load_olympiadbench() -> list[dict]:
 
 def load_amc12() -> list[dict]:
     """AI-MO/aimo-validation-amc: 83 AMC 12 problems (2022-2023)."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("AI-MO/aimo-validation-amc", "aimo-validation-amc"), split="train")
+    rows = _load_hf_dataset("AI-MO/aimo-validation-amc", "aimo-validation-amc", split="train")
     return _math_records(rows, "problem", "answer")
 
 
 def load_amc23() -> list[dict]:
     """math-ai/amc23: 40 problems (2023 AMC 12A/12B)."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("math-ai/amc23", "amc23"), split="test")
+    rows = _load_hf_dataset("math-ai/amc23", "amc23", split="test")
     return _math_records(rows, "question", "answer")
 
 
 def load_minerva() -> list[dict]:
     """math-ai/minervamath: 272 undergraduate quantitative-reasoning problems."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("math-ai/minervamath", "minervamath"), split="test")
+    rows = _load_hf_dataset("math-ai/minervamath", "minervamath", split="test")
     return _math_records(rows, "question", "answer")
 
 
 def load_gpqa_diamond() -> list[dict]:
     """Idavidrein/gpqa gpqa_diamond subset."""
-    from datasets import load_dataset
-
-    rows = load_dataset(_dataset_path("Idavidrein/gpqa", "gpqa"), "gpqa_diamond", split="train")
+    rows = _load_hf_dataset("Idavidrein/gpqa", "gpqa", "gpqa_diamond", split="train")
     records = []
     for index, row in enumerate(rows):
         options = [

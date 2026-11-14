@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import Any, ClassVar
 
 import torch
@@ -16,14 +15,6 @@ from lmkd.losses.base import Criterion, LossContext, LossOutput, LossTerm, Model
 from lmkd.losses.sft import WeightedNLL
 from lmkd.models.forward import FeatureRequest, SideRequest
 from lmkd.models.modules import ModuleRegistry
-
-_WARNED: set[str] = set()
-
-
-def _warn_once(key: str, message: str) -> None:
-    if key not in _WARNED:
-        _WARNED.add(key)
-        warnings.warn(message, UserWarning, stacklevel=3)
 
 
 class TransitionPredictor(nn.Module):

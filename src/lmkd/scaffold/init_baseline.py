@@ -80,9 +80,6 @@ from pathlib import Path
 
 from lmkd.plugins import load_plugins
 
-_HERE = Path(__file__).resolve().parent
-load_plugins({list(_PLUGIN_FILES)!r}, base_dir=_HERE)
-
 if __package__:
     from .config import {cls_name}Config
     from .data import {cls_name}Producer, {cls_name}Stage, {cls_name}Transform
@@ -113,6 +110,9 @@ if __package__:
         "{name}_metric",
         "run_training",
     ]
+else:
+    _HERE = Path(__file__).resolve().parent
+    load_plugins({list(_PLUGIN_FILES)!r}, base_dir=_HERE)
 '''
 
 
@@ -179,11 +179,12 @@ class {cls_name}Loss(NLL):
         """Declare student/teacher representations needed for forward().
 
         Unmodified: requests student logits view via ``super().features()``.
-        Example for teacher + student logits & last hidden layer:
-            return FeatureRequest(
-                student=SideRequest(logits="view", hidden=(-1,)),
-                teacher=SideRequest(logits="view", hidden=(-1,)),
-                teacher_signal=TeacherSignalSpec(kind="full"),
+        Example for teacher + student logits & last hidden layer using ``self.make_features``:
+            return self.make_features(
+                student_logits="view",
+                teacher_logits="view",
+                student_hidden=(-1,),
+                teacher_hidden=(-1,),
             )
         """
         _ = (SideRequest, TeacherSignalSpec)
@@ -207,15 +208,12 @@ class {cls_name}Loss(NLL):
         """Compute loss numerators and diagnostic metrics for one micro-batch.
 
         Unmodified: delegates to ``NLL.forward(ctx)``.
-        Example custom implementation:
-            mask = ctx.supervised_mask()
-            labels = ctx.batch["student.labels"]
-            s_view = ctx.student_logits()
-            logp = s_view.with_temperature(self.cfg.temperature).target_logp(labels, chunk_size=self.cfg.chunk_size)
-            loss_num = -(logp * mask).sum()
+        Example custom implementation using ``LossContext`` shortcuts:
+            logp = ctx.student_logits().with_temperature(self.cfg.temperature).target_logp(ctx.labels)
+            loss_num = -(logp * ctx.mask).sum()
             return LossOutput(
                 terms={{"{name}": LossTerm(loss_num, "token_sum")}},
-                metrics={{"{name}/tokens": mask.sum().detach()}},
+                metrics={{"{name}/tokens": ctx.mask.sum().detach()}},
             )
         """
         _ = (Criterion, LossTerm)
@@ -258,7 +256,7 @@ from lmkd.pipeline.stage import Stage, StageContext
 class {cls_name}Transform(Transform):
     """Per-sample data transform for {name} (no-op pass-through by default)."""
 
-    requires: ClassVar[tuple[str, ...]] = ("student.input_ids", "student.labels")
+    requires: ClassVar[tuple[str, ...]] = ("student.input_ids",)
     provides: ClassVar[tuple[str, ...]] = ()
 
     class Config(BaseConfig):
@@ -504,21 +502,9 @@ class {cls_name}Callback(Callback):
 class {cls_name}Trainer(Trainer):
     """Custom outer training loop for {name}.
 
-    Unmodified: runs the canonical ``begin -> train_step -> end`` loop.
+    Unmodified: inherits the canonical ``Trainer.fit()`` (``begin -> train_step -> end``) loop.
     Override ``train_step`` or ``fit`` to customize outer-loop behavior while keeping ``self.rt.train_step()``.
     """
-
-    def train_step(self) -> StepOutput:
-        """Execute a single training step via the runtime."""
-        return self.rt.train_step()
-
-    def fit(self) -> Runtime:
-        """Run the full training loop."""
-        self.rt.begin()
-        while not self.rt.done:
-            self.train_step()
-        self.rt.end()
-        return self.rt
 
 
 def run_training(
@@ -773,6 +759,146 @@ def test_{name}_recipe_check() -> None:
 '''
 
 
+def _render_minimal_init_py(name: str, cls_name: str) -> str:
+    return f'''"""Minimal {cls_name} method package for LM-KD (loss-only scaffold)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from lmkd.plugins import load_plugins
+
+if __package__:
+    from .loss import {cls_name}Loss
+
+    __all__ = ["{cls_name}Loss"]
+else:
+    _HERE = Path(__file__).resolve().parent
+    load_plugins(["loss.py"], base_dir=_HERE)
+'''
+
+
+def _render_minimal_recipe_yaml(name: str, import_prefix: str = "") -> str:
+    return f"""name: {name}
+imports: [{import_prefix}loss.py]
+
+engine:
+  type: local
+  device: cpu
+  mixed_precision: "no"
+
+models:
+  student:
+    path: sshleifer/tiny-gpt2
+  # Uncomment below to enable a teacher model:
+  # teacher:
+  #   path: sshleifer/tiny-gpt2
+
+data:
+  train:
+    type: jsonl
+    path: examples/data/train_sample.jsonl
+  transforms:
+    - type: tokenize_sft
+      use_chat_template: false
+  max_length: 256
+
+teacher:
+  provider: none  # change to 'hf_frozen' when adding models.teacher
+  input: same
+
+loss:
+  aggregator: weighted_sum
+  terms:
+    - criterion: {name}
+      weight: 1.0
+      params:
+        temperature: 1.0
+        alpha: 0.5
+
+optim:
+  lr: 2e-5
+  weight_decay: 0.0
+  optimizers:
+    default:
+      type: adamw
+  schedulers:
+    - type: constant
+
+grad:
+  clip_norm: 1.0
+
+train:
+  output_dir: outputs/{name}
+  max_steps: 2
+  batch_size: 2
+  micro_batch_size: 1
+  seed: 42
+  log_every: 1
+"""
+
+
+def _render_minimal_readme_md(name: str, cls_name: str, rel_pkg_dir: str, rel_recipe_file: str) -> str:
+    return f"""# {cls_name} (`{name}`)
+
+Minimal loss-only package generated by `lmkd init {name} --minimal`.
+Everything besides the criterion (`loss.py`) uses canonical LM-KD framework defaults.
+
+## Quick Commands
+
+```bash
+# 1. Fast synthetic gradient probe on the loss
+lmkd try {name}
+
+# 2. Validate recipe configuration and plugin graph
+lmkd check -c {rel_pkg_dir}/recipe.yaml
+lmkd check -c {rel_recipe_file}
+
+# 3. Train
+lmkd train -c {rel_pkg_dir}/recipe.yaml
+
+# 4. Run unit tests for this method
+pytest -q tests/unit/test_{name}.py
+```
+"""
+
+
+def _render_minimal_test_py(name: str, rel_pkg_dir: str, rel_recipe_path: str) -> str:
+    return f'''"""Unit and smoke tests for minimal initialized method '{name}'."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from lmkd.core.config import load_recipe
+from lmkd.core.registry import CRITERIONS
+from lmkd.core.validate import check_recipe
+from lmkd.plugins import load_plugins
+from lmkd.scaffold.probe import probe_gradient
+
+ROOT = Path(__file__).resolve().parents[2]
+PKG_INIT = ROOT / "{rel_pkg_dir}" / "__init__.py"
+RECIPE_PATH = ROOT / "{rel_recipe_path}"
+
+load_plugins([str(PKG_INIT)])
+
+
+def test_{name}_criterion_registered() -> None:
+    assert CRITERIONS.build("{name}") is not None
+
+
+def test_{name}_loss_gradient() -> None:
+    crit = CRITERIONS.build("{name}")
+    probe_gradient(crit)
+
+
+def test_{name}_recipe_check() -> None:
+    cfg = load_recipe(RECIPE_PATH)
+    rep = check_recipe(cfg)
+    assert rep.ok, rep.render()
+'''
+
+
 def _compute_paths(
     root: Path,
     clean_name: str,
@@ -809,9 +935,10 @@ def create_baseline_template(
     target: str = "dev",
     domain: str | None = None,
     force: bool = False,
+    minimal: bool = False,
     root: Path | None = None,
 ) -> int:
-    """Create a complete, ready-to-override baseline/method directory template."""
+    """Create a ready-to-override baseline/method directory template (full or ``minimal=True``)."""
     if not name or not name.strip():
         if sys.stdin is not None and sys.stdin.isatty():
             try:
@@ -832,24 +959,33 @@ def create_baseline_template(
     pkg_dir, central_recipe, test_file = _compute_paths(proj_root, clean_name, norm_target, resolved_domain)
     cls_name = _to_class_name(clean_name)
 
-    files_to_write: dict[Path, str] = {
-        pkg_dir / "__init__.py": _render_init_py(clean_name, cls_name),
-        pkg_dir / "config.py": _render_config_py(clean_name, cls_name),
-        pkg_dir / "loss.py": _render_loss_py(clean_name, cls_name),
-        pkg_dir / "data.py": _render_data_py(clean_name, cls_name),
-        pkg_dir / "teacher.py": _render_teacher_py(clean_name, cls_name),
-        pkg_dir / "train.py": _render_train_py(clean_name, cls_name),
-        pkg_dir / "eval.py": _render_eval_py(clean_name, cls_name),
-        pkg_dir / "recipe.yaml": _render_recipe_yaml(clean_name, import_prefix=""),
-    }
-
     rel_pkg_from_recipe = os.path.relpath(pkg_dir, central_recipe.parent).replace("\\", "/")
-    files_to_write[central_recipe] = _render_recipe_yaml(clean_name, import_prefix=f"{rel_pkg_from_recipe}/")
-
     rel_pkg_dir = pkg_dir.relative_to(proj_root).as_posix()
     rel_central_recipe = central_recipe.relative_to(proj_root).as_posix()
-    files_to_write[pkg_dir / "README.md"] = _render_readme_md(clean_name, cls_name, rel_pkg_dir, rel_central_recipe)
-    files_to_write[test_file] = _render_test_py(clean_name, rel_pkg_dir, rel_central_recipe)
+
+    if minimal:
+        files_to_write: dict[Path, str] = {
+            pkg_dir / "__init__.py": _render_minimal_init_py(clean_name, cls_name),
+            pkg_dir / "loss.py": _render_loss_py(clean_name, cls_name),
+            pkg_dir / "recipe.yaml": _render_minimal_recipe_yaml(clean_name, import_prefix=""),
+            central_recipe: _render_minimal_recipe_yaml(clean_name, import_prefix=f"{rel_pkg_from_recipe}/"),
+            pkg_dir / "README.md": _render_minimal_readme_md(clean_name, cls_name, rel_pkg_dir, rel_central_recipe),
+            test_file: _render_minimal_test_py(clean_name, rel_pkg_dir, rel_central_recipe),
+        }
+    else:
+        files_to_write = {
+            pkg_dir / "__init__.py": _render_init_py(clean_name, cls_name),
+            pkg_dir / "config.py": _render_config_py(clean_name, cls_name),
+            pkg_dir / "loss.py": _render_loss_py(clean_name, cls_name),
+            pkg_dir / "data.py": _render_data_py(clean_name, cls_name),
+            pkg_dir / "teacher.py": _render_teacher_py(clean_name, cls_name),
+            pkg_dir / "train.py": _render_train_py(clean_name, cls_name),
+            pkg_dir / "eval.py": _render_eval_py(clean_name, cls_name),
+            pkg_dir / "recipe.yaml": _render_recipe_yaml(clean_name, import_prefix=""),
+            central_recipe: _render_recipe_yaml(clean_name, import_prefix=f"{rel_pkg_from_recipe}/"),
+            pkg_dir / "README.md": _render_readme_md(clean_name, cls_name, rel_pkg_dir, rel_central_recipe),
+            test_file: _render_test_py(clean_name, rel_pkg_dir, rel_central_recipe),
+        }
 
     if not force:
         existing = [p for p in files_to_write if p.exists()]
@@ -866,8 +1002,10 @@ def create_baseline_template(
     else:
         _ensure_parent_packages(pkg_dir, proj_root)
 
-    print(f"Initialized baseline template '{clean_name}' in {pkg_dir}")
-    print(f"  - Package  : {rel_pkg_dir}/ (__init__.py, config.py, loss.py, data.py, teacher.py, train.py, eval.py)")
+    mode_label = "minimal method" if minimal else "baseline"
+    file_list = "__init__.py, loss.py" if minimal else "__init__.py, config.py, loss.py, data.py, teacher.py, train.py, eval.py"
+    print(f"Initialized {mode_label} template '{clean_name}' in {pkg_dir}")
+    print(f"  - Package  : {rel_pkg_dir}/ ({file_list})")
     print(f"  - Recipes  : {rel_pkg_dir}/recipe.yaml, {rel_central_recipe}")
     print(f"  - Unit test: {test_file.relative_to(proj_root).as_posix()}")
     return 0

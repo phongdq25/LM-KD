@@ -8,12 +8,15 @@ from pathlib import Path
 
 import pytest
 import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import lmkd
 from lmkd.cli import main
-from lmkd.core.config import deep_merge, load_yaml_with_bases
+from lmkd.core.config import deep_merge, load_yaml_with_bases, recipe_from_dict
+from lmkd.core.registry import RegistryError
+from lmkd.core.validate import check_recipe
 from lmkd.losses.base import LossOutput, LossTerm
-from lmkd.plugins import load_plugins
+from lmkd.plugins import _discover, load_plugins
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "examples"
@@ -97,9 +100,6 @@ def test_tier0_recipe_with_imports_via_cli(base_recipe, tiny_models, tmp_path):
 
 
 def test_check_reports_unknown_compute_loss_and_empty_loss(base_recipe):
-    from lmkd.core.config import recipe_from_dict
-    from lmkd.core.validate import check_recipe
-
     r = copy.deepcopy(base_recipe)
     r["algorithm"] = {"type": "compute_loss", "fn": "does_not_exist"}
     assert any("does_not_exist" in e for e in check_recipe(recipe_from_dict(r)).errors)
@@ -134,8 +134,6 @@ def test_user_plugin_file_relative_import_and_cli_flag(base_recipe, tmp_path):
 
 
 def test_build_with_injected_objects_and_callable_evaluator(base_recipe, tiny_models, toy_jsonl):
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-
     rows = [json.loads(line) for line in Path(toy_jsonl).read_text().splitlines()]
     r = copy.deepcopy(base_recipe)
     del r["models"], r["data"]["train"]
@@ -160,15 +158,11 @@ def test_examples_custom_loop_runs(base_recipe, tiny_models):
 
 
 def test_builtin_plugins_are_auto_discovered():
-    from lmkd.plugins import _discover
-
     mods = _discover()
     assert "lmkd.losses.hf_compat" in mods and "lmkd.eval.embedding" in mods and "lmkd.cli" not in mods
 
 
 def test_register_loss_rejects_name_clash_with_builtin():
-    from lmkd.core.registry import RegistryError
-
     with pytest.raises(RegistryError, match="already registered"):
 
         @lmkd.register_loss("nll")

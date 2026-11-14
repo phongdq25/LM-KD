@@ -1,5 +1,6 @@
 """Listwise preference rows and group-preserving batches."""
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +15,7 @@ from lmkd.data.context import DataContext
 from lmkd.data.dataset import PreparedDataset
 from lmkd.data.producers_listwise import ListwiseProducer
 from lmkd.data.transforms.listwise import TokenizeListwise
+from lmkd.data.transforms.tokenize import TokenizeSFT
 
 
 def _context(tiny_models):
@@ -99,8 +101,6 @@ def test_padding_groups(tiny_models):
 
 @pytest.mark.parametrize("name", ["dckd", "vpd"])
 def test_preference_recipe_graph(name):
-    from pathlib import Path
-
     path = Path(__file__).resolve().parents[2] / "recipes" / "preference" / f"{name}.yaml"
     recipe = load_recipe(path)
     recipe.loss.terms = [LossTermSpec(criterion="nll")]
@@ -109,8 +109,6 @@ def test_preference_recipe_graph(name):
 
 
 def test_tokenize_sft_messages_field(tiny_models):
-    from lmkd.data.transforms.tokenize import TokenizeSFT
-
     ctx = _context(tiny_models)
     tok_sft = TokenizeSFT(TokenizeSFT.Config(use_chat_template=False))
     sample = {
@@ -126,8 +124,6 @@ def test_tokenize_sft_messages_field(tiny_models):
 
 
 def test_tokenize_listwise_sppo_scores(tiny_models):
-    from lmkd.data.transforms.listwise import TokenizeListwise
-
     ctx = _context(tiny_models)
     tok_list = TokenizeListwise(TokenizeListwise.Config(format_plain_prompts=False))
     sample = {

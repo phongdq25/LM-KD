@@ -1,14 +1,22 @@
 """Reproductions for the 2026-10-26 audit correctness follow-up."""
 
+import json
+
 import pytest
 import torch
 from tests.e2e_tiny.test_rl_tiny import rl_recipe
 
 import lmkd
 from lmkd.core.config import recipe_from_dict
+from lmkd.core.registry import CRITERIONS, STAGES
 from lmkd.core.validate import check_recipe, preflight
+from lmkd.losses.aggregator import WeightedOutput
+from lmkd.losses.base import LossOutput, LossTerm
+from lmkd.pipeline.runner import plan
+from lmkd.pipeline.stage import Resources
 from lmkd.rl.rewards import MathVerify
 from lmkd.train.checkpointing import load_checkpoint
+from lmkd.train.grad import pcgrad_combine
 
 
 @pytest.mark.parametrize("gold", [0, 0.0, "0"])
@@ -117,10 +125,6 @@ def test_sampled_sdpo_bad_alpha_is_reported(base_recipe):
 @pytest.mark.parametrize("cancel", [False, True])
 @pytest.mark.parametrize("scaled", [False, True])
 def test_pcgrad_accumulates_before_projection(base_recipe, monkeypatch, micro, cancel, scaled):
-    from lmkd.losses.aggregator import WeightedOutput
-    from lmkd.losses.base import LossOutput, LossTerm
-    from lmkd.train.grad import pcgrad_combine
-
     base_recipe["step"] = {"type": "multi_objective_grad", "combine": "pcgrad"}
     base_recipe["grad"] = {"transforms": [], "clip_norm": None}
     base_recipe["optim"] = {"lr": 0.1, "weight_decay": 0.0, "optimizers": {"default": {"type": "sgd"}}}
@@ -155,17 +159,11 @@ def test_pcgrad_accumulates_before_projection(base_recipe, monkeypatch, micro, c
 
 
 def test_unsupported_transition_probe_fails_early():
-    from lmkd.core.registry import CRITERIONS
-
     with pytest.raises(ValueError, match="grad_probe_every"):
         CRITERIONS.build({"type": "transition_loss", "grad_probe_every": 10})
 
 
 def test_unsupported_stage_interpreter_fails_early(base_recipe, monkeypatch):
-    from lmkd.core.registry import STAGES
-    from lmkd.pipeline.runner import plan
-    from lmkd.pipeline.stage import Resources
-
     monkeypatch.setattr(STAGES.get("prepare_dataset"), "resources", Resources(python_env="/unsupported/python"))
     cfg = recipe_from_dict(base_recipe)
     cfg.pipeline = [{"stage": "prepare_dataset", "source": base_recipe["data"]["train"]}]
@@ -174,8 +172,6 @@ def test_unsupported_stage_interpreter_fails_early(base_recipe, monkeypatch):
 
 
 def test_listwise_preflight_keeps_complete_group(base_recipe, tmp_path):
-    import json
-
     path = tmp_path / "listwise.jsonl"
     path.write_text(
         "\n".join(json.dumps({"id": str(i), "prompt": "w1", "responses": ["w2", "w3", "w4"]}) for i in range(4))

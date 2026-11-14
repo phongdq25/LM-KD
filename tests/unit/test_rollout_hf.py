@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
 import torch
+from tests.conftest import _make_tokenizer
 
 from lmkd.core.config import recipe_from_dict
 from lmkd.models.logits_view import LogitsView
 from lmkd.rollout.base import Rollout, SamplingSpec, eos_ids, prompts_from_batch, rollouts_to_samples, sampling_from_cfg
+from lmkd.rollout.vllm_colocate import VLLMColocate
 from lmkd.train.builder import build_runtime
 
 
@@ -66,11 +72,6 @@ def test_hf_generate_shapes(base_recipe):
 
 
 def test_hf_eos_truncation_pad_eq_eos(base_recipe, tiny_models):
-    import shutil
-    from pathlib import Path
-
-    from conftest import _make_tokenizer
-
     src = Path(tiny_models["student"])
     dst = src.parent / "student_pad_eos"
     shutil.copytree(src, dst, dirs_exist_ok=True)
@@ -169,10 +170,6 @@ def test_hf_seed_does_not_reset_global_rng(base_recipe):
 
 
 def test_vllm_colocate_config_guards():
-    from types import SimpleNamespace
-
-    from lmkd.rollout.vllm_colocate import VLLMColocate
-
     rt = SimpleNamespace(
         config=SimpleNamespace(
             models=SimpleNamespace(student=SimpleNamespace(lora={"r": 4}, path="x", tokenizer=None))

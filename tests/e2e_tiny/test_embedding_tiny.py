@@ -7,7 +7,7 @@ from safetensors.torch import save_file
 from tests.conftest import _make_tokenizer
 from transformers import BertConfig, BertModel
 
-from lmkd.core.config import recipe_from_dict
+from lmkd.core.config import load_recipe, recipe_from_dict
 from lmkd.core.validate import check_recipe
 from lmkd.train.builder import build_runtime
 from lmkd.train.trainer import Trainer
@@ -484,8 +484,6 @@ def test_mol_tiny(tiny_bert_setup):
 
 
 def test_recipe_check():
-    from lmkd.core.config import load_recipe
-
     repo_root = Path(__file__).resolve().parents[2]
     talas_m_path = repo_root / "recipes/embedding/talas_m.yaml"
     talas_asam_path = repo_root / "recipes/embedding/talas_asam.yaml"

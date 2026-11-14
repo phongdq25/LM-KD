@@ -9,18 +9,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from tests.parity._ref import xtok_ref
 
 from lmkd.core.batch import FIELDS
 from lmkd.core.registry import ALIGNERS
+from lmkd.data.aligners.dtw_edit import dtw
 from lmkd.data.vocab_map import VocabMap
 
 pytestmark = pytest.mark.parity
-
-
-def _ref():
-    from tests.parity._ref import xtok_ref
-
-    return xtok_ref
 
 
 def build(spec):
@@ -29,7 +25,7 @@ def build(spec):
 
 # --------------------------------------------------------------------------- exact_token
 def test_exact_token_parity(xtok_samples, xtok_ctx):
-    ref = _ref()
+    ref = xtok_ref
     stu, tea = xtok_ctx.student_tokenizer, xtok_ctx.teacher_tokenizer
     al = build("exact_token")
     total = 0
@@ -68,7 +64,7 @@ def test_exact_token_hand_example(xtok_ctx):
 
 # --------------------------------------------------------------------------- char_span
 def test_char_span_parity(xtok_samples, xtok_ctx):
-    ref = _ref()
+    ref = xtok_ref
     al = build({"type": "char_span", "span_of": "context"})
     npairs = 0
     for s in xtok_samples:
@@ -97,8 +93,7 @@ def test_char_span_target_mode(xtok_samples, xtok_ctx):
 # --------------------------------------------------------------------------- dtw_edit
 def test_dtw_minED_parity(xtok_samples, xtok_ctx):
     editdistance = pytest.importorskip("editdistance")
-    ref = _ref()
-    from lmkd.data.aligners.dtw_edit import dtw
+    ref = xtok_ref
 
     rng = random.Random(1)
     vocab = ["a", "ab", "abc", "b", "bc", "x", "xy", "w1", "w12", "Ġw", "Ġ", "3"]
@@ -114,7 +109,7 @@ def test_dtw_minED_parity(xtok_samples, xtok_ctx):
 @pytest.mark.parametrize("require_id_map", [True, False])
 def test_dtw_minED_aligner(xtok_samples, xtok_ctx, require_id_map):
     editdistance = pytest.importorskip("editdistance")
-    ref = _ref()
+    ref = xtok_ref
     stu, tea = xtok_ctx.student_tokenizer, xtok_ctx.teacher_tokenizer
     vm = VocabMap.build(stu, tea)
     xtok_ctx.vocab_map = vm
@@ -154,7 +149,7 @@ def test_dtw_needs_vocab_map(xtok_samples, xtok_ctx):
 
 def test_dtw_full_sequence_lengths(xtok_samples, xtok_ctx):
     editdistance = pytest.importorskip("editdistance")
-    ref = _ref()
+    ref = xtok_ref
     al = build({"type": "dtw_edit", "full_sequence": True, "require_id_map": False})
     s = xtok_samples[1]
     out = al(s, xtok_ctx)
@@ -175,7 +170,7 @@ def test_dtw_full_sequence_lengths(xtok_samples, xtok_ctx):
 
 # --------------------------------------------------------------------------- lcs_span
 def test_lcs_span_parity(xtok_samples, xtok_ctx):
-    ref = _ref()
+    ref = xtok_ref
     al = build("lcs_span")
     for s in xtok_samples:
         out = al(s, xtok_ctx)
@@ -193,7 +188,7 @@ def test_lcs_span_parity(xtok_samples, xtok_ctx):
 
 
 def test_lcs_span_n_span_max(xtok_samples, xtok_ctx):
-    ref = _ref()
+    ref = xtok_ref
     s = xtok_samples[0]
     out = build({"type": "lcs_span", "n_span_max": 2})(s, xtok_ctx)
     assert len(out["align.sra_s_idx"]) <= 2
@@ -323,8 +318,6 @@ def test_field_specs(key, kind, dtype, pad, side):
 
 
 def test_six_aligners_stable():
-    from lmkd.core.registry import ALIGNERS as REG
-
     names = {"exact_token", "dtw_edit", "char_span", "lcs_span", "tokenkit_chunk", "parent_groups"}
-    assert names <= set(REG)
-    assert all(REG.meta(n).status == "stable" for n in names)
+    assert names <= set(ALIGNERS)
+    assert all(ALIGNERS.meta(n).status == "stable" for n in names)

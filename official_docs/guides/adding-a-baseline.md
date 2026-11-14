@@ -24,17 +24,23 @@ flowchart TD
 
 LM-KD supports two scaffolding workflows depending on the scope of your contribution:
 
-### Option A: Full Multi-Axis Baseline Package (`lmkd init`)
+### Option A: Minimal or Full Baseline Package (`lmkd init`)
 
-If you are building a full baseline paper that customizes multiple axes (loss, data producer/aligner, teacher input/provider, training loop, or evaluation) while keeping framework defaults for anything you don't touch, use `lmkd init`:
+- **Minimal loss-only package (`--minimal`):** When your method reuses LM-KD's standard dataset, teacher, and training loop and only customizes `loss.py`:
+  ```bash
+  lmkd init my_method --minimal
+  ```
+  This scaffolds only `__init__.py`, `loss.py`, `recipe.yaml`, `README.md`, and `tests/unit/test_my_method.py` without extra boilerplate files.
+- **Full multi-axis package:** When you customize multiple axes (data producer/aligner, teacher input/provider, training loop, or evaluation) while keeping framework defaults for anything you don't touch:
+  ```bash
+  # Target the official baselines directory: src/baselines/<domain>/<name>/
+  lmkd init my_method --baseline --domain same_tokenizer
 
-```bash
-# Target the official baselines directory: src/baselines/<domain>/<name>/
-lmkd init my_method --baseline --domain same_tokenizer
+  # Or target local scratch development in dev/<name>/
+  lmkd init my_method --dev
+  ```
 
-# Or target local scratch development in dev/<name>/
-lmkd init my_method --dev
-```
+For a decision tree and copy-paste recipes across all three integration levels (`@lmkd.loss`, `Criterion`, full package), see the **[Newcomer Method Integration Guide](newcomer-integration-guide.md)**.
 
 This creates a complete modular package containing:
 - `__init__.py`: Auto-loads and registers all package plugins on import.

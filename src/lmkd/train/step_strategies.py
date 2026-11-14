@@ -15,9 +15,10 @@ from lmkd.core.batch import Batch
 from lmkd.core.plugin import BaseConfig, Plugin
 from lmkd.core.registry import STEP_STRATEGIES
 from lmkd.data.labels import supervised_mask
-from lmkd.losses.aggregator import Norms
+from lmkd.losses.aggregator import GradMag, Norms
 from lmkd.train.engine import LocalEngine
-from lmkd.train.grad import ClipNorm, StepContext
+from lmkd.train.grad import ClipNorm, PCGrad, StepContext, pcgrad_combine
+from lmkd.train.multitask import gradmag_weights, last_block_params, task_grads
 
 
 @dataclass
@@ -36,7 +37,14 @@ def count_supervised(b: Batch) -> tuple[float, float]:
         z_tok = float(supervised_mask(b["student.labels"], b.get("seq.loss_mask")).sum())
     else:
         z_tok = 0.0
-    z_seq = float(b["pack.num_seqs"].sum()) if "pack.num_seqs" in b else float(b.batch_size)
+    if "pack.num_seqs" in b:
+        z_seq = float(b["pack.num_seqs"].sum())
+    elif "seq.loss_mask" in b:
+        lm = b["seq.loss_mask"]
+        active = lm > 0 if lm.dim() == 1 else (lm > 0).any(dim=-1)
+        z_seq = float(active.sum())
+    else:
+        z_seq = float(b.batch_size)
     return z_tok, z_seq
 
 
@@ -290,9 +298,6 @@ class MultiObjectiveGradStep(StandardStep):
         grad_params: str = "last_block"  # which params per-term grads are computed on
 
     def setup(self, rt):
-        from lmkd.losses.aggregator import GradMag
-        from lmkd.train.multitask import last_block_params
-
         if not isinstance(rt.engine, LocalEngine):
             raise NotImplementedError("multi_objective_grad supports only the local engine, not DeepSpeed")
         if self.cfg.combine not in ("gradmag", "pcgrad", "sum"):
@@ -313,8 +318,6 @@ class MultiObjectiveGradStep(StandardStep):
         )
 
     def accumulate(self, micros: list[Batch], norms: Norms) -> dict[str, torch.Tensor]:
-        from lmkd.train.multitask import gradmag_weights, task_grads
-
         if self.cfg.combine == "sum":
             return super().accumulate(micros, norms)
         if self.cfg.combine == "pcgrad":
@@ -342,8 +345,6 @@ class MultiObjectiveGradStep(StandardStep):
         return metrics
 
     def _pcgrad_accumulate(self, micros: list[Batch], norms: Norms) -> dict[str, torch.Tensor]:
-        from lmkd.train.multitask import task_grads
-
         rt, eng = self.rt, self.rt.engine
         self.term_grads: dict[str, list[torch.Tensor]] = {}
         metrics: dict[str, torch.Tensor] = {}
@@ -373,8 +374,6 @@ class MultiObjectiveGradStep(StandardStep):
         if self.cfg.combine != "pcgrad":
             super().apply_grad_transforms(metrics)
             return
-        from lmkd.train.grad import PCGrad, pcgrad_combine
-
         rt = self.rt
         rt.engine.unscale(rt.optimizers)
         ctx = StepContext(rt=rt, metrics=metrics, term_grads=self.term_grads)

@@ -69,6 +69,8 @@ def _collect_uld_pairs(
 
     s_lab_cpu = s_lab.cpu()
     t_lab_cpu = t_lab.cpu()
+    s_rows = s_lab_cpu.tolist()
+    t_rows = t_lab_cpu.tolist()
     s_plen = batch["student.prompt_len"].cpu().tolist() if "student.prompt_len" in batch else None
     t_plen = batch["teacher.prompt_len"].cpu().tolist() if "teacher.prompt_len" in batch else None
 
@@ -76,19 +78,18 @@ def _collect_uld_pairs(
         plen_s = _find_prompt_len(s_plen, s_lab_cpu[b], b)
         plen_t = _find_prompt_len(t_plen, t_lab_cpu[b], b)
 
+        s_row = s_rows[b]
+        t_row = t_rows[b]
         r_s = int((s_lab_cpu[b] != -100).sum().item())
         r_t = int((t_lab_cpu[b] != -100).sum().item())
         k_b = min(r_s, r_t)
+        s_len = len(s_row)
+        t_len = len(t_row)
 
         for k in range(k_b):
             pos_s = plen_s + k
             pos_t = plen_t + k
-            if (
-                pos_s < s_lab.shape[1]
-                and pos_t < t_lab.shape[1]
-                and s_lab[b, pos_s] != -100
-                and t_lab[b, pos_t] != -100
-            ):
+            if pos_s < s_len and pos_t < t_len and s_row[pos_s] != -100 and t_row[pos_t] != -100:
                 s_pairs.append((b, pos_s))
                 t_pairs.append((b, pos_t))
             else:

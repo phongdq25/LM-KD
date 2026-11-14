@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import math
 import shutil
 import time
@@ -15,9 +16,18 @@ import torch
 
 from lmkd.core.plugin import BaseConfig, Plugin
 from lmkd.core.registry import CALLBACKS
+from lmkd.train.checkpointing import (
+    COMPLETE,
+    find_best_checkpoint,
+    load_student_checkpoint,
+    save_checkpoint,
+)
+from lmkd.train.schedules import schedule_value
 
 if TYPE_CHECKING:
     from lmkd.train.runtime import Runtime
+
+logger = logging.getLogger(__name__)
 
 
 class Callback(Plugin):
@@ -160,9 +170,7 @@ class EvaluateCallback(Callback):
         super().setup(rt)
         evaluators = getattr(rt, "evaluators", [])
         if not evaluators:
-            import logging
-
-            logging.getLogger(__name__).warning("evaluate callback registered but rt.evaluators is empty.")
+            logger.warning("evaluate callback registered but rt.evaluators is empty.")
 
     def _should_eval_step(self, rt: Any) -> bool:
         if self.cfg.every == "end":
@@ -190,17 +198,13 @@ class EvaluateCallback(Callback):
                 f.write(json.dumps(record) + "\n")
 
     def _load_best_student(self, rt: Any) -> bool:
-        from lmkd.train.checkpointing import find_best_checkpoint, load_student_checkpoint
-
         out_dir = getattr(rt.config.train, "output_dir", None)
         if not out_dir:
             return False
         best = find_best_checkpoint(out_dir)
         if best is not None:
             if rt.engine.is_main:
-                import logging
-
-                logging.getLogger(__name__).info("Loaded best checkpoint from %s for final evaluation", best)
+                logger.info("Loaded best checkpoint from %s for final evaluation", best)
             load_student_checkpoint(rt, best)
             return True
         return False
@@ -249,8 +253,6 @@ class Checkpoint(Callback):
         mode: Literal["min", "max"] = "min"
 
     def save(self, rt: Runtime, tag: str) -> Path:
-        from lmkd.train.checkpointing import save_checkpoint
-
         path = save_checkpoint(rt, tag)  # collective: every rank
         rt.callbacks.on_save(rt, path)
         if rt.engine.is_main:
@@ -261,8 +263,6 @@ class Checkpoint(Callback):
     def rotate(self, root: Path) -> None:
         """Delete step checkpoints neither among the newest ``keep_last`` nor the best ``keep_best``.
         Stateless: steps and metrics are read back from each checkpoint's train_state.json."""
-        from lmkd.train.checkpointing import COMPLETE
-
         if self.cfg.keep_last is None:
             return
         ckpts = []  # (step, metric | None, path)
@@ -360,8 +360,6 @@ class ParamSchedule(Callback):
                     raise ValueError(f"criterion '{alias}' caches field '{prop}'; not schedulable")
 
     def on_step_begin(self, rt: Any) -> None:
-        from lmkd.train.schedules import schedule_value
-
         step = rt.state.step
         total = rt.state.total_steps
         for key, spec in self._schedules.items():

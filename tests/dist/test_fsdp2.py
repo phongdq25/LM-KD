@@ -1,5 +1,6 @@
 """Actual two-CUDA-rank update, accumulation, auxiliary parameters and deterministic resume."""
 import os
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -7,19 +8,27 @@ from pathlib import Path
 import pytest
 import torch
 
+import lmkd
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
+
 
 @pytest.mark.gpu
 @pytest.mark.parametrize("optimizer", ["adamw", "sgd"])
 @pytest.mark.skipif(torch.cuda.device_count() < 2, reason="FSDP2 regression requires two CUDA devices")
 def test_fsdp2_update_and_resume(tiny_models, toy_jsonl, tmp_path, optimizer):
     worker = Path(__file__).with_name("_fsdp2_worker.py")
-    cmd = [sys.executable, "-m", "torch.distributed.run", "--standalone", "--nproc_per_node=2",
+    cmd = [sys.executable, "-m", "torch.distributed.run", "--nproc_per_node=2",
+           "--master_addr=127.0.0.1", f"--master_port={_free_port()}",
            str(worker), tiny_models["student"], toy_jsonl, str(tmp_path), optimizer]
-    result = subprocess.run(cmd, env={**os.environ, "OMP_NUM_THREADS": "1"}, capture_output=True,
-                            text=True, timeout=180)
+    result = subprocess.run(cmd, env={**os.environ, "OMP_NUM_THREADS": "1", "NVIDIA_TF32_OVERRIDE": "0"},
+                            capture_output=True, text=True, timeout=180)
     assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-8000:]
     assert (tmp_path / "verified").exists()
-    import lmkd
 
     rt = lmkd.build({
         "imports": [str(worker)],

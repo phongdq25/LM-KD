@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import math
 from pathlib import Path
 
@@ -89,8 +90,6 @@ def test_dskd_family_runs(crit_name, base_recipe, tiny_models, xtok_models, tmp_
     # Check loss is finite and t2s_ce is present
     last_log = eval(lines[-1]) if lines[-1].startswith("{") else None
     if last_log is None:
-        import json
-
         last_log = json.loads(lines[-1])
     assert f"loss/{crit_name}/t2s_ce" in last_log
     assert math.isfinite(last_log[f"loss/{crit_name}/t2s_ce"])

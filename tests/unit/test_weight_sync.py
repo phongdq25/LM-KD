@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 import torch
+from transformers import AutoModelForCausalLM
 
+import lmkd.plugins as plugins
 from lmkd.core.config import recipe_from_dict
+from lmkd.core.registry import CALLBACKS
 from lmkd.rollout.weight_sync import clean_peft_name, iter_student_weights
 from lmkd.train.builder import build_runtime
 
@@ -24,7 +29,6 @@ def test_full_ft_names_match_state_dict(base_recipe):
 
 
 def test_zero3_uses_engine_stream(base_recipe):
-    from types import SimpleNamespace
 
     rt = build_runtime(recipe_from_dict(base_recipe))
     fake = SimpleNamespace(is_partitioned=True, iter_full_state_dict=lambda m: iter([("a.weight", torch.zeros(1))]))
@@ -53,7 +57,6 @@ def test_peft_merge_names(base_recipe):
     m.eval()
     with torch.no_grad():
         before = m(input_ids=ids).logits.clone()
-    from transformers import AutoModelForCausalLM
 
     sd_keys = set(AutoModelForCausalLM.from_pretrained(base_recipe["models"]["student"]["path"]).state_dict())
     merged_seen = []
@@ -82,8 +85,6 @@ def test_merge_rejects_zero3(base_recipe):
 
 
 def test_callback_marks_stale(base_recipe):
-    import lmkd.plugins as plugins
-    from lmkd.core.registry import CALLBACKS
 
     plugins.load_builtin_plugins()
     cb = CALLBACKS.build({"type": "rollout_weight_sync", "every": 2})

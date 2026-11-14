@@ -325,5 +325,3 @@ class MoL(Criterion):
 )
 class MoLKD(MoL):
     """Alias for MoL criterion."""
-
-    pass

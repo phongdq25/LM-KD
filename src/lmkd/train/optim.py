@@ -20,9 +20,11 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+from transformers import get_wsd_schedule
 
 from lmkd.core.plugin import BaseConfig, Plugin
 from lmkd.core.registry import OPTIMIZERS, SCHEDULERS
+from lmkd.train.schedules import cosine_annealing, polynomial
 
 DEFAULT_LAYER_RE = r"\.(?:layers|h|layer)\.(\d+)\."
 
@@ -318,8 +320,6 @@ class PolynomialSched(SchedulerBuilder):
         min_lr_ratio: float = 0.0
 
     def build(self, optimizer, total_steps):
-        from lmkd.train.schedules import polynomial
-
         w = self.cfg.warmup_steps if self.cfg.warmup_steps is not None else int(self.cfg.warmup_ratio * total_steps)
         return torch.optim.lr_scheduler.LambdaLR(
             optimizer,
@@ -340,8 +340,6 @@ class WSDSched(SchedulerBuilder):
         decay: str = "linear"  # linear | cosine
 
     def build(self, optimizer, total_steps):
-        from transformers import get_wsd_schedule
-
         w = self.cfg.warmup_steps if self.cfg.warmup_steps is not None else int(self.cfg.warmup_ratio * total_steps)
         d = self.cfg.decay_steps if self.cfg.decay_steps is not None else int(self.cfg.decay_ratio * total_steps)
         return get_wsd_schedule(
@@ -362,8 +360,6 @@ class CosineAnnealingSched(SchedulerBuilder):
         min_lr_ratio: float = 0.0
 
     def build(self, optimizer, total_steps):
-        from lmkd.train.schedules import cosine_annealing
-
         return torch.optim.lr_scheduler.LambdaLR(
             optimizer,
             lambda s: cosine_annealing(s, total_steps, self.cfg.min_lr_ratio),

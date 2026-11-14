@@ -90,9 +90,10 @@ class ScalarLoss:
 class Inputs:
     """Lazy target-aligned model features for a loss callback.
 
-    ``logits`` materializes only on access. ``labels`` and ``mask`` follow [start,end).
-    Hidden states retain HF positional convention; reading student hidden/side
-    selects the full graph so both hidden and head gradients remain connected.
+    ``logits`` materializes only on access. ``labels``, ``mask``, ``hidden``, and
+    ``last_hidden`` are target-aligned and follow [start,end). Reading student or teacher
+    hidden/side in an auto-chunked callback selects the full graph so both hidden and head
+    gradients remain connected. Raw positional hidden states remain available via ``side``.
     Hidden capture uses HF indices (0=embeddings, 1..L=blocks).
     """
 
@@ -131,6 +132,28 @@ class Inputs:
         if self._chunked_student:
             raise _FullInputsRequired
         return self._side
+
+    @property
+    def input_ids(self) -> torch.Tensor | None:
+        if self.batch is None:
+            return None
+        ids = self.batch.get("student.input_ids")
+        return ids[:, self.start : self.end] if ids is not None else None
+
+    @property
+    def attention_mask(self) -> torch.Tensor | None:
+        if self.batch is None:
+            return None
+        am = self.batch.get("student.attention_mask")
+        return am[:, self.start : self.end] if am is not None else None
+
+    def positional_hidden(self, layer: int = -1) -> torch.Tensor:
+        """Raw HF positional hidden state [B,T,D] at ``layer`` (predicting token t+1 at index t)."""
+        if self._chunked_student:
+            raise _FullInputsRequired
+        if self._side is None:
+            raise ValueError("Inputs has no SideOutput")
+        return self._side.hidden(layer)[:, self.start : self.end]
 
     @property
     def logits(self) -> torch.Tensor | None:
@@ -178,10 +201,21 @@ def _inputs(
 ) -> Inputs:
     output = ctx.student if side == "student" else (ctx.teacher.side if ctx.teacher else None)
     view = ctx.student.logits if side == "student" else (ctx.teacher.logits if ctx.teacher else None)
-    mask = ctx.supervised_mask("student")[:, start:end]
+    mask_side = (
+        "teacher"
+        if side == "teacher"
+        and "teacher.labels" in ctx.batch
+        and ctx.batch["teacher.labels"].shape[1] != ctx.batch["student.labels"].shape[1]
+        else "student"
+    )
+    mask = ctx.supervised_mask(mask_side)[:, start:end]
     labels = ctx.batch.get(f"{side}.labels", ctx.batch["student.labels"])[:, start:end]
-    hidden = tuple(output.hidden(i) for i in capture) if output is not None and capture else None
-    last_hidden = output.last_hidden[:, start:end] if output is not None else None
+    hidden = (
+        tuple(output.target_hidden(i)[:, start:end] for i in capture)
+        if output is not None and capture and not chunk
+        else None
+    )
+    last_hidden = output.target_hidden(-1)[:, start:end] if output is not None and not chunk else None
     return Inputs(
         logits,
         hidden,
@@ -193,7 +227,7 @@ def _inputs(
         start=start,
         end=end,
         labels=labels,
-        chunked_student=chunk and side == "student",
+        chunked_student=chunk,
     )
 
 
@@ -231,13 +265,21 @@ def _token_result(res: Any, mask: torch.Tensor) -> TokenLoss:
 
 
 def _forward_chunked(
-    ctx: LossContext, fn: Callable, kwargs: dict[str, Any], teacher: bool, chunk_size: int
+    ctx: LossContext,
+    fn: Callable,
+    kwargs: dict[str, Any],
+    teacher: bool,
+    chunk_size: int,
+    *,
+    strict_chunked: bool = False,
 ) -> LossOutput:
     s_view = ctx.student.logits
     t_view = ctx.teacher.logits if ctx.teacher is not None else None
     if s_view is None or (teacher and t_view is None):
         raise ValueError("chunked loss needs online logits views for every requested side")
     if teacher and t_view is not None and t_view.shape_bt != s_view.shape_bt:
+        if not strict_chunked:
+            raise _FullInputsRequired
         raise ValueError("chunked KD requires aligned sequence shapes; use a cross-tokenizer Criterion")
     mask = ctx.supervised_mask("student")
     logs: dict[tuple[int, int], torch.Tensor] = {}
@@ -249,6 +291,8 @@ def _forward_chunked(
             with torch.no_grad():
                 t_logits = t_view._target_slice(start, end)
             if t_logits.shape != logits.shape:
+                if not strict_chunked:
+                    raise _FullInputsRequired
                 raise ValueError("chunked KD requires matching vocabularies; use a cross-tokenizer Criterion")
             res = fn(s, _inputs(ctx, "teacher", start, end, logits=t_logits, chunk=True), **kwargs)
         else:
@@ -288,7 +332,12 @@ def _forward_full(
     if teacher:
         if ctx.teacher is None:
             raise ValueError(f"[{name}] teacher output is missing")
-        res = fn(s, _inputs(ctx, "teacher", 0, end, capture=hidden_t, use_logits=use_logits), **kwargs)
+        t_end = (
+            ctx.batch["teacher.labels"].shape[1]
+            if "teacher.labels" in ctx.batch
+            else (ctx.teacher.side.last_hidden.shape[1] if ctx.teacher.side is not None else end)
+        )
+        res = fn(s, _inputs(ctx, "teacher", 0, t_end, capture=hidden_t, use_logits=use_logits), **kwargs)
     else:
         res = fn(s, **kwargs)
     return _as_output(res, ctx.supervised_mask("student"), name)
@@ -321,7 +370,7 @@ def _build_criterion_class(
             can_chunk = chunked is not False and use_logits and not hidden_s and not hidden_t
             if can_chunk and (chunked is True or bool(ctx.supervised_mask("student").any())):
                 try:
-                    return _forward_chunked(ctx, fn, kwargs, teacher, chunk_size)
+                    return _forward_chunked(ctx, fn, kwargs, teacher, chunk_size, strict_chunked=chunked is True)
                 except _FullInputsRequired:
                     if chunked is True:
                         raise TypeError(
@@ -335,7 +384,7 @@ def _build_criterion_class(
 
 
 def loss(
-    name: str,
+    name: str | Callable | None = None,
     *,
     teacher: bool = False,
     chunked: bool | None = None,
@@ -346,9 +395,10 @@ def loss(
     paper: str = "",
     source: str = "",
     status: str = "experimental",
-) -> Callable[[Callable], Callable]:
+) -> Any:
     """Register a target-aligned loss; default auto-selects token chunks or full global inputs.
 
+    Supports ``@lmkd.loss("name", ...)``, ``@lmkd.loss(teacher=True)``, and ``@lmkd.loss``.
     Set chunked=False for sequence/batch interactions or higher-order gradients;
     chunked=True requires a deterministic, per-token callback. Logits remain lazy
     on the full path; logits=False also avoids requesting the head/teacher logits.
@@ -363,21 +413,34 @@ def loss(
     if hidden_t and not teacher:
         raise ValueError("teacher capture requires teacher=True")
 
+    direct_fn: Callable | None = None
+    explicit_name: str | None
+    if callable(name):
+        direct_fn = name
+        explicit_name = None
+    else:
+        explicit_name = name
+
     def deco(fn: Callable) -> Callable:
-        cls_name = "".join(p.capitalize() for p in name.split("_")) or "LossFn"
+        resolved_name = explicit_name or fn.__name__.lower()
+        cls_name = "".join(p.capitalize() for p in resolved_name.split("_")) or "LossFn"
         cfg_cls = _build_pydantic_config(fn, 2 if teacher else 1, cls_name)
         cls = _build_criterion_class(
-            fn, name, teacher, chunked, hidden_s, hidden_t, cfg_cls, logits, chunk_size, supports_packing
+            fn, resolved_name, teacher, chunked, hidden_s, hidden_t, cfg_cls, logits, chunk_size, supports_packing
         )
         cls.__name__ = cls.__qualname__ = cls_name
         cls.__doc__ = fn.__doc__ or f"loss {fn.__module__}.{fn.__name__}"
         cls.__module__ = fn.__module__
         cls._lmkd_fn = fn
-        CRITERIONS.register(name, paper=paper, source=source, status=status, force=_same_origin(CRITERIONS, name, fn))(
-            cls
-        )
+        CRITERIONS.register(
+            resolved_name,
+            paper=paper,
+            source=source,
+            status=status,
+            force=_same_origin(CRITERIONS, resolved_name, fn),
+        )(cls)
         fn.criterion_class = cls  # type: ignore[attr-defined]
-        fn.registry_name = name  # type: ignore[attr-defined]
+        fn.registry_name = resolved_name  # type: ignore[attr-defined]
         return fn
 
-    return deco
+    return deco(direct_fn) if direct_fn is not None else deco

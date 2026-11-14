@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from tests.parity._ref.opsd_gjsd import generalized_jsd_loss as opsd_ref_gjsd
 
@@ -13,7 +14,8 @@ from lmkd.losses.functional.divergences import (
     get_divergence,
 )
 from lmkd.losses.token_kd import TokenKD
-from lmkd.models.logits_view import LogitsView
+from lmkd.losses.topk_kd import TopKKD
+from lmkd.models.logits_view import LogitsView, chunked_token_divergence
 from lmkd.teachers.providers import _fill_from_view
 from lmkd.teachers.signals import TeacherOutput, TeacherSignalSpec
 
@@ -113,8 +115,6 @@ def test_token_kd_config_validation():
 
 
 def test_topk_renorm_equals_opsd_topk():
-    from lmkd.losses.topk_kd import TopKKD
-
     torch.manual_seed(42)
     B, T, V, K = 2, 8, 32, 5
     s_logits = torch.randn(B, T, V)
@@ -173,10 +173,6 @@ def test_topk_renorm_equals_opsd_topk():
 
 @pytest.mark.parametrize("name", ["fkl", "rkl", "symkl", "jsd", "tvd", "sfkl", "srkl", "csd", "gjsd"])
 def test_chunked_autograd_matches_full(name):
-    import torch.nn as nn
-
-    from lmkd.models.logits_view import chunked_token_divergence
-
     torch.manual_seed(42)
     B, T, D, V = 2, 8, 16, 20
     h_s = torch.randn(B, T, D, requires_grad=True)

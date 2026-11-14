@@ -12,6 +12,8 @@ from baselines.longCoT.sgl_spectral.spectral import analytic_gradients_and_entro
 from baselines.longCoT.ssft import compact_ig
 
 SGL_SRC = Path(__file__).resolve().parents[3] / "Long-CoT-Disitllation/SpectralGuidedLearning/src"
+if not SGL_SRC.exists():
+    pytest.skip(f"SGL repo not found at {SGL_SRC}", allow_module_level=True)
 sys.path.insert(0, str(SGL_SRC))
 from sgl.signals.spectral import analyze_gradient_matrix  # noqa: E402
 from sgl.ssft.attribution import compact  # noqa: E402

@@ -48,9 +48,28 @@ class LossContext:
         """Target-aligned LogitsView for the student model."""
         ...
 
+    def teacher_logits(self) -> LogitsView:
+        """Target-aligned LogitsView for the teacher model."""
+        ...
+
+    def student_target_hidden(self, layer: int = -1) -> torch.Tensor:
+        """Target-aligned [B, T, D] hidden state of student layer (aligned with labels/mask)."""
+        ...
+
+    def teacher_target_hidden(self, layer: int = -1) -> torch.Tensor:
+        """Target-aligned [B, T, D] hidden state of teacher layer (aligned with labels/mask)."""
+        ...
+
     def supervised_mask(self, side: str = "student") -> torch.Tensor:
         """(labels != -100) * seq.loss_mask (if present), float [B, T]."""
         ...
+
+    @property
+    def mask(self) -> torch.Tensor: ...       # alias for supervised_mask("student")
+    @property
+    def labels(self) -> torch.Tensor: ...     # alias for batch["student.labels"]
+    @property
+    def input_ids(self) -> torch.Tensor: ...  # alias for batch["student.input_ids"]
 ```
 
 ---
@@ -131,18 +150,19 @@ class LogitsView:
 
 ---
 
-## 6. Functional Loss Decorator: `@lmkd.losses.loss`
+## 6. Functional Loss Decorator: `@lmkd.loss`
 
-For simple token-level or sequence-level objectives, you can define a criterion using the functional decorator:
+For simple token-level or sequence-level objectives, define a criterion using `@lmkd.loss` (can be used as `@lmkd.loss("name", ...)`, `@lmkd.loss(teacher=True)`, or bare `@lmkd.loss`):
 
 ```python
-from lmkd.losses.loss_decorator import loss, TokenLoss
+import lmkd
+from lmkd import Inputs, TokenLoss
 
-@loss("my_quick_loss", teacher=True, chunked=True)
-def my_quick_loss(student, teacher, temperature: float = 1.0):
-    p_t = torch.softmax(teacher.logits / temperature, dim=-1)
-    p_s = torch.log_softmax(student.logits / temperature, dim=-1)
-    kl = (p_t * (p_t.log() - p_s)).sum(dim=-1)
-    return TokenLoss(values=kl * (temperature ** 2))
+@lmkd.loss(teacher=True)
+def my_quick_loss(s: Inputs, t: Inputs, temperature: float = 1.0) -> TokenLoss:
+    p_t = torch.softmax(t.logits / temperature, dim=-1)
+    log_p_s = torch.log_softmax(s.logits / temperature, dim=-1)
+    kl = (p_t * (p_t.clamp_min(1e-12).log() - log_p_s)).sum(dim=-1)
+    return TokenLoss(kl * (temperature ** 2), s.mask)
 ```
 

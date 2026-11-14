@@ -18,6 +18,15 @@ class DetachedLinear(nn.Module):
         super().__init__()
         self.head = [head]  # list: NOT registered as submodule
 
+    @property
+    def weight(self) -> torch.Tensor:
+        return cast(Any, self.head[0]).weight.detach()
+
+    @property
+    def bias(self) -> torch.Tensor | None:
+        b = getattr(cast(Any, self.head[0]), "bias", None)
+        return b.detach() if b is not None else None
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         head = cast(Any, self.head[0])
         w: torch.Tensor = head.weight

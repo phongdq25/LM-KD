@@ -4,7 +4,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from lmkd.eval.embedding import EmbeddingLinearProbe, EmbeddingPair, EmbeddingSTS
+from lmkd.eval.embedding import EmbeddingLinearProbe, EmbeddingPair, EmbeddingSTS, encode_texts, sts_spearman
 from lmkd.models.adapters import HFAutoAdapter
 from lmkd.plugins import load_builtin_plugins
 
@@ -201,7 +201,6 @@ def test_linear_probe():
 
 def test_pure_metric_functions_without_runtime():
     pytest.importorskip("scipy")
-    from lmkd.eval.embedding import encode_texts, sts_spearman
 
     emb_map = {
         10: torch.tensor([1.0, 0.0]),

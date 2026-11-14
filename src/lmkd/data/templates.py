@@ -40,7 +40,7 @@ def build_prompt(
 ) -> str:
     """Render prompt using template and optional chat_template with thinking block rules."""
     instruction = template.format(problem=instruction_separator + problem)
-    if not chat_template:
+    if not chat_template or (hasattr(tokenizer, "chat_template") and not tokenizer.chat_template):
         return instruction
 
     if thinking_mode == "on":

@@ -8,6 +8,7 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 from lmkd.compat import hf_api
 from lmkd.core.config import ModelSpec
@@ -18,8 +19,6 @@ _DTYPES = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}
 
 
 def load_tokenizer(spec: ModelSpec) -> Any:
-    from transformers import AutoTokenizer
-
     tok = AutoTokenizer.from_pretrained(spec.tokenizer or spec.path, trust_remote_code=spec.trust_remote_code)
     if tok.pad_token_id is None:
         # NOTE: pad may equal eos afterwards. Never infer lengths from `== pad_token_id`.
@@ -43,8 +42,6 @@ def _load_quantized_model(cls: Any, spec: ModelSpec) -> Any:
         model: Any = cls.from_pretrained(spec.path, **kwargs)
         quantize_(model, float8_weight_only())
         return model
-
-    from transformers import BitsAndBytesConfig
 
     if spec.placement.startswith("device:"):
         device = spec.placement.split(":", 1)[1]
@@ -93,8 +90,6 @@ def _check_tied_lora_targets(model: Any, lora_dict: dict[str, Any]) -> None:
 
 
 def load_model(spec: ModelSpec, *, trainable: bool) -> nn.Module:
-    from transformers import AutoModel, AutoModelForCausalLM
-
     cls = AutoModelForCausalLM if spec.task == "causal_lm" else AutoModel
     model: Any
 

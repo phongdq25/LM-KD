@@ -7,9 +7,12 @@ from pathlib import Path
 
 import pytest
 import torch
+import yaml
 
+from lmkd.cli import main
 from lmkd.core.config import recipe_from_dict
 from lmkd.core.registry import ROLLOUT
+from lmkd.eval.evaluators import MathPassK
 from lmkd.train.trainer import train
 
 
@@ -61,8 +64,6 @@ def test_math_passk_rescore_only(tmp_path):
     }
     with open(bench_file, "w") as f:
         f.write(json.dumps(row1) + "\n" + json.dumps(row2) + "\n")
-
-    from lmkd.eval.evaluators import MathPassK
 
     cfg = MathPassK.Config(
         benchmarks=["math500"],
@@ -132,10 +133,6 @@ def test_generation_rouge_hf(base_recipe, toy_jsonl):
 
 
 def test_cli_eval(base_recipe, toy_jsonl, tmp_path, capsys):
-    import yaml
-
-    from lmkd.cli import main
-
     base_recipe["eval"] = [{"type": "dev_loss", "data": {"type": "jsonl", "path": toy_jsonl}, "batch_size": 4}]
     recipe_path = tmp_path / "eval_recipe.yaml"
     with open(recipe_path, "w") as f:

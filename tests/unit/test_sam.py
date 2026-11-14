@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 import torch
+from transformers import AutoTokenizer, GPT2Config, GPT2LMHeadModel
 
 from lmkd.core.config import recipe_from_dict
 from lmkd.train.builder import build_runtime
@@ -12,8 +13,6 @@ from lmkd.train.step_strategies import SAMStep
 
 @pytest.fixture
 def sam_recipe(base_recipe, tiny_models, tmp_path):
-    from transformers import AutoTokenizer, GPT2Config, GPT2LMHeadModel
-
     tokenizer = AutoTokenizer.from_pretrained(tiny_models["student"])
     model_path = tmp_path / "no_dropout_gpt2"
     model_path.mkdir()

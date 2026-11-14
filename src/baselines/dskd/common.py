@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 
 from lmkd.core.plugin import BaseConfig
+from lmkd.data.vocab_map import VocabMap
 from lmkd.losses.base import Criterion, LossContext, PrepareContext
 from lmkd.losses.cross_tokenizer._common import (
     vd_divergence,
@@ -21,7 +22,8 @@ from lmkd.teachers.signals import TeacherSignalSpec
 
 def _view_argmax(view: LogitsView, chunk_size: int = 1024) -> torch.Tensor:
     """Argmax index [B, T] from a LogitsView without materializing full logits."""
-    return view.topk(1, chunk_size=chunk_size)[0].squeeze(-1)
+    with torch.no_grad():
+        return view.topk(1, chunk_size=chunk_size)[0].squeeze(-1)
 
 
 def _get_heads(ctx: LossContext) -> tuple[nn.Module, nn.Module]:
@@ -162,8 +164,6 @@ def _init_pinv_and_buffers(criterion: _DualSpaceBase, ctx: PrepareContext) -> No
             and getattr(rt, "student_tokenizer", None) is not None
             and getattr(rt, "teacher_tokenizer", None) is not None
         ):
-            from lmkd.data.vocab_map import VocabMap
-
             vm = VocabMap.build(rt.student_tokenizer, rt.teacher_tokenizer)
         if vm is not None:
             overlap_s = vm.overlap_s.to(W_S.device)

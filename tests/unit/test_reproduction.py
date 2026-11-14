@@ -1,10 +1,14 @@
 """Executable baseline catalogue and recipe resolution regressions."""
 
+import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from lmkd.reproduce import BASELINES, ROOT, resolve_jobs, validate_jobs
+from lmkd.core.registry import STAGES, TRANSFORMS
+from lmkd.data.context import DataContext
+from lmkd.reproduce import BASELINES, ROOT, execute_plan, main, resolve_jobs, validate_jobs, write_plan
 
 
 def test_catalogue_covers_six_domains_and_named_gaps():
@@ -119,9 +123,6 @@ def test_longcot_model_override_reaches_offline_capture(tmp_path):
 
 
 def test_embedding_teacher_receives_original_text(tmp_path):
-    from lmkd.core.registry import STAGES, TRANSFORMS
-    from lmkd.data.context import DataContext
-
     (cfg,) = resolve_jobs("talas_m", tmp_path)
     transform = TRANSFORMS.build(cfg.pipeline[0]["transforms"][0])
 
@@ -140,11 +141,6 @@ def test_embedding_teacher_receives_original_text(tmp_path):
 
 
 def test_failed_launch_records_failure(tmp_path, monkeypatch):
-    import json
-    import subprocess
-
-    from lmkd.reproduce import execute_plan, write_plan
-
     jobs = resolve_jobs("sft", tmp_path)
     plan = write_plan("sft", jobs, tmp_path)
 
@@ -159,7 +155,5 @@ def test_failed_launch_records_failure(tmp_path, monkeypatch):
 
 
 def test_reproduce_cli_set_action_extend():
-    from lmkd.reproduce import main
-
     res = main(["sft", "--check", "--set", "train.seed=123", "--set", "train.log_every=5"])
     assert res == 0 or res is None

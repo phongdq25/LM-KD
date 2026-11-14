@@ -10,8 +10,17 @@ from tests.parity._ref.etp_ref import dual_ref, etp_ref
 from tests.parity._ref.mcw_ref import context_ref, hidden_ref, logits_ref
 from tests.parity._ref.residual_ref import pretrain_ref, residual_core_ref
 
+from baselines.cross_tokenizer.mcw_kd import (
+    ETP,
+    MultiCostSemiDualOT,
+    OTHidden,
+    OTLogits,
+    context_windows,
+)
+from baselines.cross_tokenizer.residualkd import ProjectorTA, ResidualKD, ResidualPretrain, residual_core
 from lmkd.core.batch import Batch
 from lmkd.core.state import TrainState
+from lmkd.data.aligners.dtw_edit import DtwEdit
 from lmkd.losses.base import LossContext, ModelPairInfo
 from lmkd.models.logits_view import LogitsView
 from lmkd.models.modules import ModuleRegistry
@@ -39,8 +48,6 @@ def _context(s, t, batch_extra=None):
 
 
 def test_etp_parity():
-    from baselines.cross_tokenizer.mcw_kd import ETP
-
     torch.manual_seed(9)
     cost = torch.rand(7, 5)
     got, transport = ETP()(cost)
@@ -51,8 +58,6 @@ def test_etp_parity():
 
 
 def test_ot_logits_parity():
-    from baselines.cross_tokenizer.mcw_kd import OTLogits
-
     torch.manual_seed(4)
     s = torch.randn(4, 6, requires_grad=True)
     t = torch.randn(4, 6)
@@ -67,9 +72,6 @@ def test_ot_logits_parity():
 
 
 def test_ot_hidden_parity():
-    from baselines.cross_tokenizer.mcw_kd import OTHidden, context_windows
-    from lmkd.data.aligners.dtw_edit import DtwEdit
-
     torch.manual_seed(7)
     s = torch.randn(4, 6, requires_grad=True)
     t = torch.randn(5, 6)
@@ -108,8 +110,6 @@ def test_ot_hidden_parity():
 
 
 def test_dual_parity():
-    from baselines.cross_tokenizer.mcw_kd import MultiCostSemiDualOT
-
     torch.manual_seed(11)
     actual = MultiCostSemiDualOT(3, 4, 4, hidden_dim=8, num_inner_iters=2)
     reference = copy.deepcopy(actual)
@@ -125,8 +125,6 @@ def test_dual_parity():
 
 
 def test_residual_pretrain_parity():
-    from baselines.cross_tokenizer.residualkd import ResidualPretrain
-
     torch.manual_seed(12)
     hidden = torch.randn(2, 4, 6)
     head = nn.Linear(6, 9, bias=False)
@@ -152,9 +150,6 @@ def test_residual_pretrain_parity():
 
 
 def test_mixed_dtype_projector_boundaries():
-    from baselines.cross_tokenizer.mcw_kd import OTHidden, OTLogits
-    from baselines.cross_tokenizer.residualkd import ResidualKD
-
     student_hidden = torch.randn(4, 6, dtype=torch.bfloat16, requires_grad=True)
     teacher_hidden = torch.randn(4, 6, dtype=torch.bfloat16)
     pairs = torch.tensor([[i, i] for i in range(4)])
@@ -188,8 +183,6 @@ def test_mixed_dtype_projector_boundaries():
 
 @pytest.mark.parametrize("cross", [False, True], ids=["same", "cross"])
 def test_residual_parity(cross):
-    from baselines.cross_tokenizer.residualkd import ProjectorTA, residual_core
-
     torch.manual_seed(12)
     hs, ht = torch.randn(2, 4, 6), torch.randn(2, 4, 8)
     ta, sa, as_ = ProjectorTA(8, 4), nn.Linear(6, 4, bias=False), nn.Linear(4, 6, bias=False)

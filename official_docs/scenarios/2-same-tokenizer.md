@@ -12,8 +12,8 @@ Evaluated across 3 distinct Teacher $\rightarrow$ Student pairs sharing the same
   - **Teacher:** `openai-community/gpt2-xl` (1.5B parameters)
   - **Student:** `openai-community/gpt2` (120M parameters)
 - **Pair 2 (Qwen1.5 Family, BPE $|\mathcal{V}| = 151,936$):**
-  - **Teacher:** `Qwen/Qwen1.5-1.8B-Chat` (1.8B parameters)
-  - **Student:** `Qwen/Qwen1.5-0.5B-Chat` (0.5B parameters)
+  - **Teacher:** `Qwen/Qwen1.5-1.8B` (1.8B parameters)
+  - **Student:** `Qwen/Qwen1.5-0.5B` (0.5B parameters)
 - **Pair 3 (OPT Family, BPE $|\mathcal{V}| = 50,272$):**
   - **Teacher:** `facebook/opt-6.7b` (6.7B parameters)
   - **Student:** `facebook/opt-1.3b` (1.3B parameters)

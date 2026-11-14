@@ -11,7 +11,7 @@ from pydantic import Field
 
 from lmkd.core.batch import FIELDS, Batch, FieldSpec
 from lmkd.core.plugin import BaseConfig, Plugin
-from lmkd.core.registry import ADV_TRANSFORMS, ADVANTAGES, ALGORITHMS
+from lmkd.core.registry import ADV_TRANSFORMS, ADVANTAGES, ALGORITHMS, LOSS_FNS
 from lmkd.data.labels import supervised_mask
 from lmkd.losses.aggregator import WeightedOutput
 from lmkd.losses.base import LossContext
@@ -130,8 +130,6 @@ class ComputeLoss(Standard):
         kwargs: dict = {}  # hyperparameters passed to fn as keyword arguments
 
     def setup(self, rt: Any) -> None:
-        from lmkd.core.registry import LOSS_FNS
-
         fn = LOSS_FNS.build(self.cfg.fn)
         kw = dict(self.cfg.kwargs)
         rt.loss_fn = (lambda batch, rt_: fn(batch, rt_, **kw)) if kw else fn

@@ -14,13 +14,13 @@ from lmkd.pipeline.stage import StageContext
 from lmkd.pipeline.stages.preference import (
     SampleCandidates,
     Score,
+    SPPOCalibrate,
     pad_mcq_template,
     pairwise_scores,
     score_record,
 )
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "Awesome-Human-AI-Alignment-main" / "src"))
-from human_alignment.integrations.distillation_data import _pad_mcq_template  # noqa: E402
+_ALIGNMENT_SRC = Path(__file__).resolve().parents[3] / "Awesome-Human-AI-Alignment-main" / "src"
 
 
 class FixedModel:
@@ -46,6 +46,12 @@ def test_pairwise_order_balanced(tiny_models):
 
 
 def test_pad_mcq_template_verbatim(tiny_models):
+    if not _ALIGNMENT_SRC.exists():
+        pytest.skip(f"Original source repository not found at {_ALIGNMENT_SRC}")
+    if str(_ALIGNMENT_SRC) not in sys.path:
+        sys.path.insert(0, str(_ALIGNMENT_SRC))
+    from human_alignment.integrations.distillation_data import _pad_mcq_template
+
     tok = AutoTokenizer.from_pretrained(tiny_models["student"])
     tok.chat_template = "{% for m in messages %}{{ m['role'] }}:{{ m['content'] }}\n{% endfor %}assistant:"
     ours = pad_mcq_template(tok)
@@ -136,8 +142,6 @@ def test_sample_candidates_stage(tiny_models, tmp_path):
 
 
 def test_sppo_calibrate_stage(tmp_path):
-    from lmkd.pipeline.stages.preference import SPPOCalibrate
-
     incoming = tmp_path / "in"
     incoming.mkdir()
     outgoing = tmp_path / "out"

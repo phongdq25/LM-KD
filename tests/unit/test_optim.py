@@ -1,6 +1,7 @@
 import pytest
 import torch
 
+from lmkd.models.modules import LinearProjector, ModuleRegistry
 from lmkd.train.optim import NamedParam, build_param_groups
 
 
@@ -32,8 +33,6 @@ def test_unmatched_param_errors():
 
 
 def test_module_registry_dotted_names():
-    from lmkd.models.modules import LinearProjector, ModuleRegistry
-
     reg = ModuleRegistry()
     reg.add("dskd.t2s", LinearProjector(LinearProjector.Config(in_dim=2, out_dim=3)), owner="dskd")
     reg.add("tmp", LinearProjector(LinearProjector.Config(in_dim=2, out_dim=2)), save=False)

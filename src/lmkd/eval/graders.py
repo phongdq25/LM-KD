@@ -9,6 +9,7 @@ from __future__ import annotations
 import concurrent.futures
 import contextlib
 import logging
+import math
 import os
 import re
 import signal
@@ -240,8 +241,6 @@ def _time_limit(seconds: float):
 
 
 def math_ceil(x: float) -> int:
-    import math
-
     return max(1, math.ceil(x))
 
 

@@ -72,7 +72,7 @@ optim:
   - name: default
     match: {}
   optimizers:
-    adamw:
+    default:
       type: adamw
   schedulers:
   - type: cosine

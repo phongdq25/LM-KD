@@ -23,10 +23,11 @@ import torch.nn as nn
 from lmkd.core.batch import Batch
 from lmkd.core.plugin import BaseConfig
 from lmkd.core.state import TrainState
-from lmkd.models.forward import FeatureRequest, SideOutput
+from lmkd.data.labels import supervised_mask
+from lmkd.models.forward import FeatureRequest, LayerSpec, SideOutput, SideRequest
 from lmkd.models.logits_view import LogitsView
 from lmkd.models.modules import InitSpec, ModuleRegistry, ModuleT, ScopedModuleView
-from lmkd.teachers.signals import TeacherOutput
+from lmkd.teachers.signals import TeacherOutput, TeacherSignalSpec
 
 if TYPE_CHECKING:
     from lmkd.train.runtime import Runtime
@@ -90,10 +91,60 @@ class LossContext:
             raise ValueError("this loss needs student logits but the model has no lm_head (encoder model?)")
         return view
 
+    def teacher_logits(self) -> LogitsView:
+        """The teacher's :class:`LogitsView`; raises a clear error when teacher logits are unavailable."""
+        if self.teacher is None or self.teacher.logits is None:
+            raise ValueError(
+                "this loss needs teacher logits; set needs_teacher=True and request teacher logits in features()"
+            )
+        return self.teacher.logits
+
+    def teacher_side(self) -> SideOutput:
+        """The teacher's :class:`SideOutput`; raises a clear error when online teacher states are unavailable."""
+        if self.teacher is None or self.teacher.side is None:
+            raise ValueError(
+                "this loss needs online teacher hidden/side outputs; configure an online teacher (e.g. hf_frozen)"
+            )
+        return self.teacher.side
+
+    def student_hidden(self, layer: int = -1) -> torch.Tensor:
+        """Positional [B,T,D] hidden state of the student at ``layer`` (HF convention)."""
+        return self.student.hidden(layer)
+
+    def teacher_hidden(self, layer: int = -1) -> torch.Tensor:
+        """Positional [B,T,D] hidden state of the teacher at ``layer`` (HF convention)."""
+        return self.teacher_side().hidden(layer)
+
+    def student_target_hidden(self, layer: int = -1) -> torch.Tensor:
+        """Target-aligned [B,T,D] hidden state of the student at ``layer`` (aligned with labels and mask)."""
+        return self.student.target_hidden(layer)
+
+    def teacher_target_hidden(self, layer: int = -1) -> torch.Tensor:
+        """Target-aligned [B,T,D] hidden state of the teacher at ``layer`` (aligned with labels and mask)."""
+        return self.teacher_side().target_hidden(layer)
+
+    @property
+    def labels(self) -> torch.Tensor:
+        """Shortcut for ``self.batch["student.labels"]`` [B,T]."""
+        return self.batch["student.labels"]
+
+    @property
+    def input_ids(self) -> torch.Tensor:
+        """Shortcut for ``self.batch["student.input_ids"]`` [B,T]."""
+        return self.batch["student.input_ids"]
+
+    @property
+    def attention_mask(self) -> torch.Tensor | None:
+        """Shortcut for ``self.batch.get("student.attention_mask")`` [B,T]."""
+        return self.batch.get("student.attention_mask")
+
+    @property
+    def mask(self) -> torch.Tensor:
+        """Shortcut for ``self.supervised_mask("student")`` float [B,T]."""
+        return self.supervised_mask("student")
+
     def supervised_mask(self, side: str = "student") -> torch.Tensor:
         """(labels != -100) * seq.loss_mask (if present), float [B,T]."""
-        from lmkd.data.labels import supervised_mask
-
         lm = self.batch.get("seq.loss_mask") if side == "student" else None
         return supervised_mask(self.batch[f"{side}.labels"], lm)
 
@@ -119,6 +170,11 @@ class Criterion(nn.Module):
     requires: ClassVar[tuple[str, ...]] = ()
     supports_packing: ClassVar[bool] = True
     needs_teacher: ClassVar[bool] = False
+    student_logits_mode: ClassVar[Literal["none", "view", "full"]] = "none"
+    teacher_logits_mode: ClassVar[Literal["none", "view", "full"]] = "none"
+    student_hidden_layers: ClassVar[LayerSpec] = "none"
+    teacher_hidden_layers: ClassVar[LayerSpec] = "none"
+    teacher_signal_kind: ClassVar[Literal["full", "topk", "sampled_logp", "hidden", "none"] | None] = None
 
     class Config(BaseConfig):
         pass
@@ -297,8 +353,61 @@ class Criterion(nn.Module):
         )
 
     # ---- declarations
+    @staticmethod
+    def make_features(
+        *,
+        student_logits: Literal["none", "view", "full"] = "none",
+        teacher_logits: Literal["none", "view", "full"] = "none",
+        student_hidden: LayerSpec = "none",
+        teacher_hidden: LayerSpec = "none",
+        student_attentions: LayerSpec = "none",
+        teacher_attentions: LayerSpec = "none",
+        student_pooled: tuple[tuple[int, str], ...] = (),
+        teacher_pooled: tuple[tuple[int, str], ...] = (),
+        teacher_signal: Literal["full", "topk", "sampled_logp", "hidden", "none"] | TeacherSignalSpec | None = None,
+    ) -> FeatureRequest:
+        """Concise helper to build a :class:`FeatureRequest` without nested boilerplate."""
+        s_req = SideRequest(
+            logits=student_logits,
+            hidden=student_hidden,
+            attentions=student_attentions,
+            pooled=student_pooled,
+        )
+        has_t = (
+            teacher_logits != "none"
+            or teacher_hidden != "none"
+            or teacher_attentions != "none"
+            or bool(teacher_pooled)
+        )
+        t_req = (
+            SideRequest(
+                logits=teacher_logits,
+                hidden=teacher_hidden,
+                attentions=teacher_attentions,
+                pooled=teacher_pooled,
+            )
+            if has_t
+            else None
+        )
+        sig: TeacherSignalSpec | None
+        if isinstance(teacher_signal, TeacherSignalSpec):
+            sig = teacher_signal
+        elif teacher_signal is not None:
+            sig = TeacherSignalSpec(kind=teacher_signal)
+        elif has_t:
+            sig = TeacherSignalSpec(kind="full" if teacher_logits != "none" else "hidden")
+        else:
+            sig = None
+        return FeatureRequest(student=s_req, teacher=t_req, teacher_signal=sig)
+
     def features(self) -> FeatureRequest:
-        return FeatureRequest()
+        return self.make_features(
+            student_logits=self.student_logits_mode,
+            teacher_logits=self.teacher_logits_mode,
+            student_hidden=self.student_hidden_layers,
+            teacher_hidden=self.teacher_hidden_layers,
+            teacher_signal=self.teacher_signal_kind,
+        )
 
     # ---- lifecycle
     def build_modules(self, info: ModelPairInfo, modules: ModuleRegistry) -> None:

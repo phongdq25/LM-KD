@@ -24,9 +24,11 @@ Rules:
 from __future__ import annotations
 
 import contextlib
+import difflib
 import importlib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from importlib.metadata import entry_points
 from typing import Any
 
 from pydantic import ValidationError
@@ -138,8 +140,6 @@ class Registry:
         if not self._resolve(key):
             self._load_all()  # the full list for the error message below
         if key not in self._items:
-            import difflib
-
             close = difflib.get_close_matches(key, list(self._items), n=3)
             hint = f" Did you mean: {close}?" if close else ""
             raise RegistryError(f"'{key}' is not registered in [{self.name}].{hint} Available: {sorted(self._items)}")
@@ -259,7 +259,5 @@ ALL_REGISTRIES: dict[str, Registry] = {
 
 def import_entry_point_plugins() -> None:
     """Import third-party plugin modules declared under the ``lmkd.plugins`` entry-point group."""
-    from importlib.metadata import entry_points
-
     for ep in entry_points(group="lmkd.plugins"):
         importlib.import_module(ep.value)

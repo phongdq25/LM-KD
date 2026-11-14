@@ -12,7 +12,7 @@ To serve diverse research and engineering needs, this documentation is structure
 |---|---|---|
 | **Newcomers** | Understand what LM-KD is and run your first distillation experiment in 10 minutes. | [Getting Started](getting-started/quickstart.md), [Concepts & Taxonomy](concepts/taxonomy.md), [Tutorials](tutorials/distilling-llama-to-opt.md) |
 | **Baseline Users** | Reproduce published distillation methods across heterogeneous models and benchmarks. | [Methods Catalog](methods/index.md), [Empirical Results](results/index.md), [Pre-built Scenarios](scenarios/index.md) |
-| **Method Developers** | Implement novel divergence objectives, span aligners, or multi-stage distillation pipelines. | [Architecture](architecture/core-abstractions.md), [Developer Guides](guides/index.md), [API Reference](api/index.md) |
+| **Method Developers** | Implement novel divergence objectives, span aligners, or multi-stage distillation pipelines. | [Newcomer Integration Guide](guides/newcomer-integration-guide.md), [Architecture](architecture/core-abstractions.md), [Developer Guides](guides/index.md) |
 | **Contributors** | Extend the framework, write plugins, maintain reproducibility, and submit pull requests. | [Contributing Guide](contributing/index.md), [PR Checklist](contributing/pr-checklist.md), [Code Style Standards](contributing/code-style.md) |
 
 ---
